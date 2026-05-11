@@ -1,0 +1,68 @@
+import { api } from './api';
+import type {
+  RunSummary,
+  RunDetail,
+  RunEvent,
+  RcaReport,
+  IncidentTicket,
+  EvidenceItem,
+  RunDiagnosis,
+  RunRemediation,
+} from '../types';
+
+interface CreateRunByTicket {
+  ticket: IncidentTicket;
+}
+
+interface CreateRunByTicketId {
+  ticket_id: string;
+}
+
+interface AlertEventPayload {
+  alert_name: string;
+  service: string;
+  env: string;
+  severity: string;
+  description?: string;
+  labels?: Record<string, string>;
+  started_at?: string;
+}
+
+interface CreateRunByAlertEvent {
+  alert_event: AlertEventPayload;
+}
+
+export type CreateRunRequest = CreateRunByTicket | CreateRunByTicketId | CreateRunByAlertEvent;
+
+export const runs = {
+  createRun: (data: CreateRunRequest) =>
+    api.post<RunSummary>('/incidents/runs', data),
+
+  getRun: (runId: string) =>
+    api.get<RunDetail>(`/incidents/runs/${runId}`),
+
+  listRuns: (limit = 100, offset = 0) =>
+    api.get<RunSummary[]>(`/incidents/runs?limit=${limit}&offset=${offset}`),
+
+  getRunEvents: (runId: string, lastEventTs?: string) => {
+    const url = lastEventTs
+      ? `/incidents/runs/${runId}/events?last_event_ts=${encodeURIComponent(lastEventTs)}`
+      : `/incidents/runs/${runId}/events`;
+    return api.get<RunEvent[]>(url);
+  },
+
+  getRunEvidence: (runId: string) =>
+    api.get<EvidenceItem[]>(`/incidents/runs/${runId}/evidence`),
+
+  getRunActions: (runId: string) =>
+    api.get<any[]>(`/incidents/runs/${runId}/actions`),
+
+  getRunDiagnosis: (runId: string) =>
+    api.get<RunDiagnosis>(`/incidents/runs/${runId}/diagnosis`),
+
+  getRunRemediation: (runId: string) =>
+    api.get<RunRemediation>(`/incidents/runs/${runId}/remediation`),
+
+  getRunRca: (runId: string) =>
+    api.get<RcaReport>(`/incidents/runs/${runId}/rca`),
+};

@@ -1,0 +1,113 @@
+{
+  "app": {
+    "title": "OpsPilot"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "newIncident": "New Incident",
+    "approvals": "Approvals"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "failed": "Failed",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "submit": "Submit",
+    "back": "Back",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "actions": "Actions",
+    "status": "Status",
+    "created": "Created",
+    "updated": "Updated",
+    "noData": "No data"
+  },
+  "run": {
+    "create": "Create Incident Run",
+    "creating": "Creating...",
+    "createSuccess": "Incident run created successfully",
+    "createFailed": "Failed to create incident run",
+    "ticketId": "Ticket ID (optional)",
+    "title": "Title",
+    "titleRequired": "Title *",
+    "description": "Description",
+    "service": "Service",
+    "serviceRequired": "Service *",
+    "environment": "Environment",
+    "environmentRequired": "Environment *",
+    "severity": "Severity",
+    "severityRequired": "Severity *",
+    "environments": {
+      "prod": "Production",
+      "staging": "Staging",
+      "dev": "Development"
+    },
+    "severities": {
+      "P1": "P1 - Critical",
+      "P2": "P2 - High",
+      "P3": "P3 - Medium",
+      "P4": "P4 - Low"
+    },
+    "status": {
+      "NEW": "New",
+      "TRIAGED": "Triaged",
+      "PLANNED": "Planned",
+      "GATHERING_EVIDENCE": "Gathering Evidence",
+      "DIAGNOSED": "Diagnosed",
+      "PENDING_APPROVAL": "Pending Approval",
+      "WAITING_HUMAN": "Waiting Human",
+      "EXECUTING": "Executing",
+      "VERIFYING": "Verifying",
+      "COMPLETED": "Completed",
+      "FAILED": "Failed"
+    },
+    "notFound": "Run not found",
+    "loadFailed": "Failed to load",
+    "events": "Events",
+    "noEvents": "No events yet",
+    "quickActions": "Quick Actions",
+    "viewRca": "View RCA",
+    "incident": "Incident",
+    "createNew": "Create New Incident",
+    "tabs": {
+      "events": "Events",
+      "evidence": "Evidence",
+      "diagnosis": "Diagnosis",
+      "remediation": "Plan"
+    },
+    "approvalPending": "Human approval required before execution",
+    "viewApprovals": "Review approvals",
+    "currentNode": "Current Node"
+  },
+  "approval": {
+    "title": "Pending Approvals",
+    "loadFailed": "Failed to load",
+    "submitFailed": "Failed to submit",
+    "requestTitle": "Approval Request",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "pending": "Pending",
+    "riskLevel": "Risk Level",
+    "comment": "Comment",
+    "commentPlaceholder": "Enter your comment..."
+  },
+  "rca": {
+    "title": "Root Cause Analysis",
+    "loadFailed": "Failed to load",
+    "rootCause": "Root Cause",
+    "resolution": "Resolution",
+    "prevention": "Prevention",
+    "pending": "Root cause analysis pending",
+    "exportMarkdown": "Export Markdown"
+  },
+  "validation": {
+    "titleOrTicketIdRequired": "Either title or ticket_id is required"
+  }
+}

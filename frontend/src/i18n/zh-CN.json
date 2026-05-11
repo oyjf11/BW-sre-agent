@@ -1,0 +1,113 @@
+{
+  "app": {
+    "title": "OpsPilot"
+  },
+  "nav": {
+    "dashboard": "仪表盘",
+    "newIncident": "新建事件",
+    "approvals": "审批"
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "failed": "失败",
+    "cancel": "取消",
+    "confirm": "确认",
+    "submit": "提交",
+    "back": "返回",
+    "close": "关闭",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "view": "查看",
+    "actions": "操作",
+    "status": "状态",
+    "created": "创建时间",
+    "updated": "更新时间",
+    "noData": "暂无数据"
+  },
+  "run": {
+    "create": "创建事件处理",
+    "creating": "创建中...",
+    "createSuccess": "事件处理创建成功",
+    "createFailed": "创建事件处理失败",
+    "ticketId": "工单ID（可选）",
+    "title": "标题",
+    "titleRequired": "标题 *",
+    "description": "描述",
+    "service": "服务",
+    "serviceRequired": "服务 *",
+    "environment": "环境",
+    "environmentRequired": "环境 *",
+    "severity": "严重程度",
+    "severityRequired": "严重程度 *",
+    "environments": {
+      "prod": "生产环境",
+      "staging": "预发环境",
+      "dev": "开发环境"
+    },
+    "severities": {
+      "P1": "P1 - 紧急",
+      "P2": "P2 - 高",
+      "P3": "P3 - 中",
+      "P4": "P4 - 低"
+    },
+    "status": {
+      "NEW": "新建",
+      "TRIAGED": "已分诊",
+      "PLANNED": "已计划",
+      "GATHERING_EVIDENCE": "收集证据中",
+      "DIAGNOSED": "已诊断",
+      "PENDING_APPROVAL": "待审批",
+      "WAITING_HUMAN": "等待人工",
+      "EXECUTING": "执行中",
+      "VERIFYING": "验证中",
+      "COMPLETED": "已完成",
+      "FAILED": "失败"
+    },
+    "notFound": "未找到该处理",
+    "loadFailed": "加载失败",
+    "events": "事件",
+    "noEvents": "暂无事件",
+    "quickActions": "快捷操作",
+    "viewRca": "查看根因分析",
+    "incident": "事件",
+    "createNew": "新建事件",
+    "tabs": {
+      "events": "事件流",
+      "evidence": "证据",
+      "diagnosis": "诊断",
+      "remediation": "方案"
+    },
+    "approvalPending": "执行前需要人工审批",
+    "viewApprovals": "前往审批",
+    "currentNode": "当前节点"
+  },
+  "approval": {
+    "title": "待审批列表",
+    "loadFailed": "加载失败",
+    "submitFailed": "提交失败",
+    "requestTitle": "审批请求",
+    "approve": "批准",
+    "reject": "拒绝",
+    "approved": "已批准",
+    "rejected": "已拒绝",
+    "pending": "待处理",
+    "riskLevel": "风险等级",
+    "comment": "备注",
+    "commentPlaceholder": "请输入备注..."
+  },
+  "rca": {
+    "title": "根因分析",
+    "loadFailed": "加载失败",
+    "rootCause": "根本原因",
+    "resolution": "解决方案",
+    "prevention": "预防措施",
+    "pending": "根因分析进行中",
+    "exportMarkdown": "导出 Markdown"
+  },
+  "validation": {
+    "titleOrTicketIdRequired": "标题或工单ID至少填写一项"
+  }
+}

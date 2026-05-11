@@ -1,0 +1,56 @@
+# 环境变量 & 密钥
+.env
+.env.*
+!.env.example
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.egg
+
+# Node
+node_modules/
+.npm
+
+# 构建产物
+frontend/dist/
+frontend/.next/
+frontend/out/
+
+# 日志
+*.log
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 缓存
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Agent 工具目录
+.agent/
+.agents/
+.opencode/
+.qoder/
+.sisyphus/
+.claude/
+.qa-artifacts/
