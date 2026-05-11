@@ -24,16 +24,19 @@
 - LangGraph 故障处理主图
 - Tool Gateway 统一工具调用入口
 - mock adapters 与基础测试
+- MySQL 诊断 client/adapter：`backend/app/tools/clients/mysql_client.py`、`backend/app/tools/adapters/mysql_adapter.py`
+- MySQL 应用日志 `query_logs` real 路由：读取业务库 `common_app_log`
+- K8s 只读 client/adapter：`backend/app/tools/clients/k8s_client.py`、`backend/app/tools/adapters/k8s_adapter.py`
 
 当前工程仍缺少：
 
-- 真实平台 `client` 层
-- 真实平台 `adapter` 层
+- SLB / ALB 真实 `client` 与 `adapter`
+- OSS 归档 `client` 与 `adapter`
 - 阿里云凭证与只读配置模型
 - service metadata normalization
-- `ticket_id` 自动查询与 OSS 归档落地
+- `ticket_id` 真实自动查询、真实部署记录查询与 OSS 归档落地
 
-当前 `TOOL_ADAPTER_MODE=real` 已经改成 fail-closed：没有真实适配器时会显式失败，而不会返回伪造成功结果。
+当前 `TOOL_ADAPTER_MODE=real` 已接入 MySQL 与 K8s 的真实路由；尚未实现的真实适配器仍应保持 fail-closed，不能返回伪造成功结果。
 
 ---
 

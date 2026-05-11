@@ -114,7 +114,7 @@ evidence_items 存在于 graph state 内存中，通过 GraphRunner._persist_evi
 ### 4. Tool Adapter 模式
 
 - 默认 TOOL_ADAPTER_MODE=mock，使用 mock 适配器返回仿真数据
-- 真实适配器尚未实现（MySQL/K8s/SLB/OSS）
+- 真实适配器进度：MySQL 诊断、MySQL 应用日志、K8s 已实现；SLB、OSS 仍待实现
 - 切换方式：在 backend/.env 设置 TOOL_ADAPTER_MODE=real
 
 ### 5. 前端类型与后端对齐
@@ -133,7 +133,7 @@ evidence_items 存在于 graph state 内存中，通过 GraphRunner._persist_evi
 | `backend/app/services/graph_runner.py` | 图执行器（事件、checkpoint、evidence 持久化） |
 | `backend/app/services/executor.py` | ControlledExecutor（幂等执行 + 审计） |
 | `backend/app/tools/gateway.py` | Tool Gateway（schema 校验、重试、审计） |
-| `backend/app/tools/adapters/__init__.py` | 11 个 mock 适配器 |
+| `backend/app/tools/adapters/__init__.py` | mock 适配器集合 |
 | `backend/app/core/config.py` | Settings（环境变量配置） |
 | `backend/app/llm_client.py` | LLM 客户端（OpenAI + MiniMax） |
 | `frontend/src/pages/RunDetailPage.tsx` | 运行详情页（Stepper + Tabs） |
@@ -164,7 +164,7 @@ curl -s http://127.0.0.1:8000/incidents/runs/{run_id}/remediation | python3 -m j
 
 ## 当前进度
 
-详见 ACTION_PLAN.md。已完成 Phase 1-2-4，当前执行 Phase 3（全链路验证）。
+详见 ACTION_PLAN.md。Phase 1-4 已完成，当前处于 Phase 5（阿里云真实数据源接入）；Task 5.1、5.1.5、5.2 已完成，下一步是 5.3 SLB 与 5.4 OSS。
 
 ## 编码规范
 
