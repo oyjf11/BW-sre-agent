@@ -1299,9 +1299,23 @@ async def verify_outcome_node(state: IncidentAgentState) -> IncidentAgentState:
             state["evidence_items"] = items
             verification_evidence_ids.append(ev.evidence_id)
             error_rate = traffic_result.result.get("error_rate", 0)
-            verification_checks.append(
-                {"check": "traffic", "error_rate": error_rate, "pass": error_rate < 0.05}
-            )
+            if error_rate is None:
+                error_rate = 0.0
+            metrics_available = traffic_result.result.get("metrics_available", True)
+            # If CMS returned no real metrics, treat as unavailable — not a pass
+            if not metrics_available:
+                verification_checks.append(
+                    {
+                        "check": "traffic",
+                        "status": "unavailable",
+                        "pass": False,
+                        "reason": "CMS metrics unavailable — cannot verify traffic health",
+                    }
+                )
+            else:
+                verification_checks.append(
+                    {"check": "traffic", "error_rate": error_rate, "pass": error_rate < 0.05}
+                )
     except Exception as e:
         verification_checks.append(
             {"check": "traffic", "status": "error", "pass": False, "error": str(e)}

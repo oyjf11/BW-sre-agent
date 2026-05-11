@@ -191,7 +191,7 @@
 - 已补充并通过后端测试：`test_k8s_adapter.py`、`test_tool_gateway.py`、`test_mysql_planning.py`、`test_executor_preconditions.py`
 - 备注：真实集群联调仍依赖 kubeconfig / service account 与 namespace 白名单配置
 
-### Task 5.3: SLB 适配器（只读，替换现有 mock）
+### Task 5.3: SLB 适配器（只读，替换现有 mock） — ✅ 已完成（2026-05-11）
 
 **目标**: 用真实阿里云 SLB 数据替换现有 mock 的 `query_lb_health_status` 和 `query_lb_traffic_metrics`
 
@@ -213,6 +213,17 @@
 **验收**:
 - real 模式下能返回真实 SLB 健康状态和流量指标
 - mock 模式下行为与之前一致（无需改动）
+
+**完成说明**:
+- 已实现 `slb_client.py`，封装 `DescribeLoadBalancers` / `DescribeHealthStatus` / `DescribeLoadBalancerAttribute` API，集成 CMS `DescribeMetricData` 获取 QPS/延迟/5xx 真实指标
+- 已实现 `slb_adapter.py`，通过 tag（Service+Env）或 loadBalancerName 模糊匹配定位 SLB 实例
+- 已在 `gateway.py` 的 `select_adapter()` 中注册 real 路由
+- 已在 `config.py` 中新增 `ALIBABA_ACCESS_KEY_ID` / `ALIBABA_ACCESS_KEY_SECRET` / `ALIBABA_REGION_ID` 配置项
+- 已在 `requirements.txt` 中新增 `alibabacloud-slb20140515` / `alibabacloud-tea-openapi` / `alibabacloud-cms20190101` 依赖
+- 已补充并通过后端测试：`test_slb_adapter.py`（mock + real 路由 + CMS datapoints 解析全覆盖）
+- `verify_outcome_node` 对 `metrics_available=false` 降级为不通过，避免假阳性
+- CMS endpoint 按 `ALIBABA_REGION_ID` 构造，与 SLB endpoint 保持一致
+- 备注：真实 SLB + CMS 联调依赖阿里云 AK/SK 与 region 配置
 
 ### Task 5.4: OSS 适配器（写归档）
 
@@ -327,6 +338,240 @@
 
 ---
 
+## Phase 9: 大厂 Agent 岗位短板补齐（P1，预计 5-8 天）
+
+> 来源：`jobs/agent开发大厂面试标准调研.md` 的“短板也明显”章节。
+> 当前项目已经覆盖 Workflow Agent、Tool Use、审批、checkpoint、SSE、Mock/Real Adapter。
+> 本阶段重点补齐：完整 RAG 链路、hybrid search、rerank、RAG/Agent 评测、业务场景迁移表达、推荐/预测/NLP 算法模块。
+
+### Task 9.1: RAG 增强为可评测知识库链路（基于 Phase 6 扩展）
+
+**目标**: 将 Phase 6 的基础向量检索升级为“可解释、可评测、可调优”的生产 RAG 链路，覆盖向量检索、关键词检索、hybrid search、rerank、引用与召回评估。
+
+**上下文**:
+- Phase 6.1 已规划 Chroma/pgvector 基础索引与检索，本任务在其上扩展，不重复实现基础 writer/retriever。
+- 面试标准明确要求不能只说“把文档放进向量库”，需要讲清楚 chunk、embedding、索引、召回、重排、引用、评测。
+- SRE 场景的 RAG 数据源优先使用 RCA、Runbook、故障复盘、告警处理 SOP；暂不引入外部知识库平台。
+
+**步骤**:
+1. 扩展 `backend/app/rag/indexer.py`：
+   - 为每个 chunk 写入 `doc_id`, `chunk_id`, `doc_type`, `service`, `env`, `incident_type`, `severity`, `source_url`, `created_at`
+   - chunk 策略支持 `paragraph` 和 `token_window` 两种模式，默认 `token_window`，窗口 512 tokens，overlap 80 tokens
+   - 保存 chunk 原文摘要，便于前端展示引用
+
+2. 新增 `backend/app/rag/keyword_index.py`：
+   - 使用 SQLite FTS5 或轻量 BM25 实现关键词检索
+   - 查询入参：`query`, `filters`, `top_k`
+   - 返回统一 `RetrievedDocument` 结构，字段包含 `score`, `retrieval_source="keyword"`
+
+3. 扩展 `backend/app/rag/retriever.py`：
+   - 增加 `retrieval_mode`: `vector | keyword | hybrid`
+   - `hybrid` 模式同时取向量 top_k 与关键词 top_k，按 RRF（Reciprocal Rank Fusion）合并
+   - 输出每条 evidence 的 `citations`，包含 `doc_id`, `chunk_id`, `score`, `source_url`
+
+4. 新增 `backend/app/rag/reranker.py`：
+   - 默认实现为规则 rerank：service/env/incident_type 精确匹配加权，标题命中加权，过期文档降权
+   - 预留 LLM rerank 接口，但默认不开启，避免引入额外成本和不稳定性
+
+5. 新增 `backend/app/rag/eval.py`：
+   - 读取 `backend/app/rag/eval_datasets/*.json`
+   - 指标：Recall@3、Recall@5、MRR、Citation Coverage、No-Answer Precision
+   - CLI：`python -m app.rag.eval --dataset backend/app/rag/eval_datasets/sre_rag.json`
+
+6. 在 `RunDetailPage` 的 Evidence Tab 中展示历史知识引用：
+   - 展示标题、doc_type、score、source_url
+   - citation 缺失时不展示空链接
+
+**验收**:
+- 同一条查询在 `vector`、`keyword`、`hybrid` 三种模式下均可返回结构化结果
+- `hybrid` 模式输出包含 RRF 合并后的 score 和 citations
+- RAG eval CLI 输出 Recall@3、Recall@5、MRR、Citation Coverage
+- Evidence Tab 能看到历史 RCA/Runbook 的引用来源
+- mock 环境无需外部向量服务即可跑通单元测试
+
+### Task 9.2: Prompt / Agent 版本管理与回放对比
+
+**目标**: 补齐 Prompt 版本管理和 Agent 改动回放能力，回答“Prompt 改了怎么判断变好还是变坏”。
+
+**步骤**:
+1. 新增 `backend/app/prompts/registry.py`：
+   - 集中管理 planner、diagnose、critic、remediation、rca 等节点的 system prompt
+   - 每个 prompt 带 `prompt_id`, `version`, `checksum`, `description`
+
+2. 在 graph state 或 run metadata 中记录：
+   - 每个节点实际使用的 `prompt_id/version/checksum`
+   - LLM provider、model、temperature、token usage（如果 provider 返回）
+
+3. 扩展 Phase 8 的 `backend/app/evals/replay_runner.py`：
+   - 支持 `--prompt-version old,new` 对比回放
+   - 输出每个版本的根因命中率、风险等级准确率、平均 token、平均耗时
+
+4. 在 `backend/app/evals/reports/` 输出 Markdown 报告：
+   - 列出 improved/regressed/unchanged case
+   - 对 regressed case 保留诊断摘要和工具调用路径
+
+**验收**:
+- 任意 run 能追溯每个关键节点使用的 prompt 版本
+- 同一评测集可对比两个 prompt 版本的指标差异
+- 回放报告能明确列出回归 case
+
+### Task 9.3: 泛业务场景迁移 Demo（电商/跨境/供应链表达补齐）
+
+**目标**: 不改变 OpsPilot 的 SRE 主线，但新增“业务场景迁移包”，证明当前 Workflow Agent 架构可以迁移到电商客服、跨境履约、库存补货等大厂常见业务。
+
+**上下文**:
+- 调研短板指出项目不是电商/跨境/供应链业务场景。
+- 不建议把主系统硬改成电商系统；更稳妥的做法是沉淀可配置 Scenario Profile，让同一套 intake/planner/tool/risk/eval 思路可迁移。
+
+**步骤**:
+1. 新增 `backend/app/scenarios/profiles.py`：
+   - 定义 `ScenarioProfile`：`scenario_id`, `domain`, `intake_schema`, `tool_catalog`, `risk_rules`, `success_metrics`
+   - 内置 `sre_incident`, `ecommerce_customer_service`, `cross_border_fulfillment`, `inventory_replenishment` 四个 profile
+
+2. 新增 `backend/app/scenarios/examples/*.json`：
+   - 每个业务场景提供 2 个样例任务
+   - 样例包含输入、可用工具、风险边界、期望输出
+
+3. 新增 `backend/app/scenarios/mapper.py`：
+   - 将非 SRE 场景映射到统一 Agent 概念：intake、planning、tool evidence、decision、risk gate、human approval、verification
+   - 输出面试可展示的结构化 Mermaid / Markdown 说明
+
+4. 新增文档 `docs/interview/scenario-migration.md`：
+   - 说明 OpsPilot 架构如何迁移到电商客服、跨境履约、库存补货
+   - 每个场景列出业务目标、数据源、工具接口、风险边界、人工审核、评估指标
+
+**验收**:
+- `python -m app.scenarios.mapper --scenario ecommerce_customer_service` 能输出完整迁移说明
+- 文档能直接支撑面试表述，不需要口头临场补齐
+- 不影响现有 SRE run 创建、审批、执行 API
+
+### Task 9.4: 轻量推荐 / 预测 / NLP 算法模块
+
+**目标**: 补齐“推荐 / 预测 / NLP 算法模块”短板，用 SRE 业务内生算法能力展示，而不是生造无关电商推荐系统。
+
+**步骤**:
+1. 新增 `backend/app/analytics/incident_features.py`：
+   - 从历史 runs/events/evidence 中抽取特征：service、env、severity、incident_type、tool_failures、duration、approval_required、root_cause
+   - 输出 pandas DataFrame 或纯 Python list[dict]，优先保持轻依赖
+
+2. 新增 `backend/app/analytics/similarity.py`：
+   - 实现相似故障推荐：基于 service/env/severity/root_cause/evidence keywords 的加权相似度
+   - 输出 top_k 历史 run，作为 planner/diagnose 的候选参考
+
+3. 新增 `backend/app/analytics/risk_prediction.py`：
+   - 实现规则 + 简单统计模型的风险预测
+   - 输入当前 run 特征，输出 `predicted_escalation_risk`, `confidence`, `top_factors`
+   - 默认不依赖训练服务；有足够历史数据后再切换 sklearn baseline
+
+4. 新增 `backend/app/analytics/nlp.py`：
+   - 从工单 title/description 中抽取 service、symptom、metric、time_range、suspected_change
+   - 作为 intake/triage 的辅助信息，不替代现有 schema 校验
+
+5. 在 diagnose 或 planner 节点中接入：
+   - 相似故障推荐写入 `evidence_items`，category=`historical_similarity`
+   - 风险预测写入 state，供 `risk_gate` 参考
+
+**验收**:
+- 有历史 run 时，新工单能返回 top_k 相似故障
+- 风险预测输出可解释 top_factors
+- NLP 抽取失败不影响 graph 主流程
+- 单元测试覆盖空历史、低相似度、多服务混合、中文工单描述
+
+---
+
+## Phase 10: 大规模生产工程能力展示（P1，预计 4-6 天）
+
+> 对应调研短板：缺少消息队列、缓存、分布式任务调度等大规模生产能力展示。
+> 目标不是过度工程化，而是把长任务执行从“单进程可跑”推进到“可水平扩展、可观测、可恢复”的架构。
+
+### Task 10.1: Redis 缓存与分布式锁
+
+**目标**: 为 run 状态、审批 pending 列表、RAG 检索结果和幂等执行增加缓存与分布式锁能力。
+
+**步骤**:
+1. 在 `backend/app/core/config.py` 新增：
+   - `REDIS_URL`
+   - `CACHE_TTL_SECONDS`
+   - `ENABLE_REDIS_CACHE`
+
+2. 新增 `backend/app/core/cache.py`：
+   - 提供 `get_json`, `set_json`, `delete`, `get_or_set`
+   - Redis 不可用时降级为进程内 no-op cache，并记录 warning event
+
+3. 新增 `backend/app/core/locks.py`：
+   - 基于 Redis SET NX PX 实现 run 级别锁
+   - 锁 key：`opspilot:run:{run_id}:lock`
+   - 获取失败时返回明确错误，避免重复执行同一 run
+
+4. 接入点：
+   - `GraphRunner` 开始执行 run 前获取 run lock
+   - approvals pending 列表使用短 TTL 缓存
+   - RAG hybrid 检索结果按 query+filters 缓存
+
+**验收**:
+- 同一 run 被并发触发时只有一个执行流继续
+- Redis 不可用时系统仍可运行，只是缓存/锁能力降级并有日志
+- 缓存命中不会改变 API response schema
+
+### Task 10.2: 后台任务队列与 Worker
+
+**目标**: 将 graph run 执行从 API 请求线程中解耦，展示长任务 API、队列、失败重试和水平扩展能力。
+
+**步骤**:
+1. 选择轻量方案：
+   - 默认：RQ + Redis，符合当前 Python/FastAPI 项目体量
+   - 暂不引入 Celery，避免 broker/result backend/worker 配置过重
+
+2. 新增 `backend/app/jobs/queue.py`：
+   - `enqueue_graph_run(run_id: str)`
+   - `enqueue_rag_reindex(doc_id: str | None)`
+   - `get_job_status(job_id: str)`
+
+3. 新增 `backend/app/jobs/worker.py`：
+   - worker 入口：`python -m app.jobs.worker`
+   - 执行 `GraphRunner.run(run_id)`，失败后按指数退避重试，最多 3 次
+
+4. 修改 `POST /incidents/runs`：
+   - 创建 run 后入队
+   - response 增加 `job_id`（前端类型同步更新）
+   - 保留本地同步执行 fallback：`ENABLE_JOB_QUEUE=false`
+
+5. 新增 API：
+   - `GET /jobs/{job_id}` 返回 queued/started/failed/finished/retry_count
+
+**验收**:
+- API 创建 run 后立即返回，不阻塞等待 graph 完成
+- worker 能消费队列并推进 run 状态
+- worker crash 后任务可重试
+- `ENABLE_JOB_QUEUE=false` 时现有测试仍能同步跑通
+
+### Task 10.3: 成本、延迟与质量指标看板
+
+**目标**: 将大厂常问的 Agent 指标沉淀到系统内：任务完成率、人工接管率、工具失败率、平均耗时、token 成本、RAG 命中率。
+
+**步骤**:
+1. 新增 `backend/app/metrics/collector.py`：
+   - 从 runs/events/evidence/evals 汇总指标
+   - 输出按天、service、env 聚合的数据
+
+2. 新增 API `GET /metrics/agent-quality`：
+   - 返回 `success_rate`, `human_handoff_rate`, `tool_failure_rate`, `avg_duration_ms`, `avg_token_cost`, `rag_recall_at_5`
+
+3. 前端新增 `frontend/src/pages/MetricsPage.tsx`：
+   - 展示核心指标卡片和按 service 的表格
+   - 保持运维工具风格，避免营销化页面
+
+4. 将 Phase 8/9 的 eval report 接入指标：
+   - 离线评测结果写入 metrics snapshot
+   - 看板展示最近一次离线评测摘要
+
+**验收**:
+- mock 数据下页面可展示完整指标
+- 至少包含任务完成率、人工接管率、工具失败率、平均耗时、RAG Recall@5
+- 后端 API 有单元测试，前端页面有 Vitest 覆盖
+
+---
+
 ## 执行顺序总结
 
 ```
@@ -336,14 +581,25 @@ Phase 5 执行顺序:
   Task 5.1  (MySQL 诊断工具)     ── ✅ 已完成（2026-04-08）
   Task 5.1.5(应用日志 query_logs) ── ✅ 已完成（2026-04-08）
   Task 5.2  (K8s 适配器)         ── ✅ 已完成（2026-04-08）
-  Task 5.3  (SLB 适配器)         ─┤── 互相独立，可并行
-  Task 5.4  (OSS 适配器)         ─┘
+  Task 5.3  (SLB 适配器)         ── ✅ 已完成（2026-05-11）
+  Task 5.4  (OSS 适配器)         ─┤── 互相独立，可并行
 
 Phase 6 (Task 6.1)          ─┐
 Phase 7 (Task 7.1)          ─┤── 与 Phase 5 后半段并行
                              ─┘
 
 Phase 8 (Task 8.1)         ── 最后，2-3 天
+
+Phase 9 短板补齐:
+  Task 9.1  (RAG hybrid/rerank/eval)      ─┐
+  Task 9.2  (Prompt 版本与回放对比)        ─┤── 依赖 Phase 6/8，可并行推进
+  Task 9.3  (泛业务场景迁移 Demo)          ─┤
+  Task 9.4  (推荐/预测/NLP 算法模块)       ─┘
+
+Phase 10 生产工程能力:
+  Task 10.1 (Redis 缓存与分布式锁)         ─┐
+  Task 10.2 (后台任务队列与 Worker)        ─┤── 建议在 Phase 9 后执行
+  Task 10.3 (成本/延迟/质量指标看板)       ─┘
 ```
 
 **跨仓库依赖**: Task 5.1.5 需要 admin-sys 先部署日志写入改造（见 `admin-sys/ACTION_PLAN_LOG_TO_MYSQL.md`）

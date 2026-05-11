@@ -38,6 +38,10 @@ from app.tools.adapters.k8s_adapter import (
     query_k8s_events as real_query_k8s_events,
     query_k8s_pod_logs_summary as real_query_k8s_pod_logs_summary,
 )
+from app.tools.adapters.slb_adapter import (
+    query_lb_health_status as real_query_lb_health_status,
+    query_lb_traffic_metrics as real_query_lb_traffic_metrics,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +114,10 @@ def select_adapter(tool_name: str):
             return real_query_k8s_events
         elif tool_name == "query_k8s_pod_logs_summary":
             return real_query_k8s_pod_logs_summary
+        elif tool_name == "query_lb_health_status":
+            return real_query_lb_health_status
+        elif tool_name == "query_lb_traffic_metrics":
+            return real_query_lb_traffic_metrics
     return None
 
 
@@ -392,6 +400,7 @@ register_tool(
             "properties": {
                 "service": {"type": "string"},
                 "env": {"type": "string"},
+                "window_minutes": {"type": "integer"},
             },
             "required": ["service", "env"],
         },

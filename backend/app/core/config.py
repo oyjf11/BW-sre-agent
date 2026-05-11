@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     k8s_context: str = ""
     k8s_allowed_namespaces: List[str] = []
 
+    # Alibaba Cloud SLB settings (for aliyun real adapter)
+    alibaba_access_key_id: str = ""
+    alibaba_access_key_secret: str = ""
+    alibaba_region_id: str = "cn-hangzhou"
+
     log_level: str = "INFO"
 
     def validate_for_production(self):
