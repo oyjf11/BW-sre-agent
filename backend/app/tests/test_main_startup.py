@@ -50,6 +50,17 @@ def test_bootstrap_skips_when_revision_already_present():
     assert command.calls == []
 
 
+def test_settings_expose_rag_defaults():
+    from app.core.config import get_settings
+
+    settings = get_settings()
+
+    assert settings.rag_collection_name == "opspilot_knowledge"
+    assert settings.rag_embedding_model == "BAAI/bge-small-zh-v1.5"
+    assert settings.rag_chunk_size == 512
+    assert settings.rag_chunk_overlap == 80
+
+
 def test_bootstrap_skips_when_schema_is_incomplete():
     engine = create_sqlite_engine()
     with engine.begin() as connection:

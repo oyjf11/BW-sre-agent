@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     minimax_group_id: str = ""
     minimax_model: str = "abab6.5s-chat"
 
+    # DeepSeek settings (only required when llm_provider=deepseek)
+    deepseek_api_key: str = ""
+    deepseek_model: str = "deepseek-chat"
+
     database_url: str = "sqlite+aiosqlite:///./opspilot.db"
 
     http_timeout: int = 30
@@ -69,7 +73,24 @@ class Settings(BaseSettings):
     alibaba_access_key_secret: str = ""
     alibaba_region_id: str = "cn-hangzhou"
 
+    # Alibaba Cloud OSS settings (for OSS adapter)
+    alibaba_oss_bucket: str = ""
+    alibaba_oss_endpoint: str = ""
+
+    # Alibaba Cloud CMS / K8s metrics
+    k8s_cluster_id: str = ""
+
     log_level: str = "INFO"
+
+    rag_enabled: bool = False
+    rag_persist_dir: str = "./storage/chroma"
+    rag_collection_name: str = "opspilot_knowledge"
+    rag_embedding_model: str = "BAAI/bge-small-zh-v1.5"
+    rag_chunk_size: int = 512
+    rag_chunk_overlap: int = 80
+    rag_runbook_dir: str = "./knowledge/runbooks"
+    rag_top_k: int = 5
+    rag_enable_reranker: bool = False
 
     def validate_for_production(self):
         """Fail-fast validation for production environment."""
@@ -105,3 +126,8 @@ def get_settings() -> Settings:
     settings = Settings()
     settings.validate_for_production()
     return settings
+
+
+def clear_settings_cache():
+    """Clear cached settings so next call re-reads .env."""
+    get_settings.cache_clear()
