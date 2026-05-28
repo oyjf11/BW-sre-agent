@@ -4,7 +4,9 @@ import logging
 from typing import List
 
 from app.graph.state import IncidentAgentState
+from app.models.evidence import EvidenceItem
 from app.models.planning import MemoryHit
+from app.rag.retriever import chunks_to_evidence, retrieve
 from app.tools import ToolRequest, gateway
 
 logger = logging.getLogger(__name__)
@@ -46,11 +48,59 @@ async def retrieve_memory_node(state: IncidentAgentState) -> IncidentAgentState:
     triage = state.get("triage")
     run_id = state.get("run_id", "unknown")
 
-    service = getattr(ticket, "service", "") if ticket else ""
-    env = getattr(ticket, "env", "") if ticket else ""
-    incident_type = getattr(triage, "incident_type", "") if triage else ""
+    service = (
+        getattr(ticket, "service", "")
+        if hasattr(ticket, "service")
+        else (ticket.get("service", "") if isinstance(ticket, dict) else "")
+    )
+    env = (
+        getattr(ticket, "env", "")
+        if hasattr(ticket, "env")
+        else (ticket.get("env", "") if isinstance(ticket, dict) else "")
+    )
+    title = (
+        getattr(ticket, "title", "")
+        if hasattr(ticket, "title")
+        else (ticket.get("title", "") if isinstance(ticket, dict) else "")
+    )
+    description = (
+        getattr(ticket, "description", "")
+        if hasattr(ticket, "description")
+        else (ticket.get("description", "") if isinstance(ticket, dict) else "")
+    )
+    incident_type = (
+        getattr(triage, "incident_type", "")
+        if hasattr(triage, "incident_type")
+        else (triage.get("incident_type", "") if isinstance(triage, dict) else "")
+    )
 
     memory_hits: List[MemoryHit] = []
+    evidence_items: List[EvidenceItem] = list(state.get("evidence_items", []) or [])
+
+    try:
+        query = " ".join(part for part in [title, description, service, incident_type] if part)
+        filters = {"service": service, "env": env}
+        rag_chunks = retrieve(
+            query=query,
+            filters=filters,
+            top_k=5,
+        )
+        for chunk in rag_chunks:
+            memory_hits.append(
+                MemoryHit(
+                    source=chunk.doc_type,
+                    content=chunk.content,
+                    relevance_score=chunk.score,
+                    metadata={
+                        **chunk.metadata,
+                        "doc_id": chunk.doc_id,
+                        "chunk_id": chunk.chunk_id,
+                    },
+                )
+            )
+        evidence_items.extend(chunks_to_evidence(rag_chunks))
+    except Exception as e:
+        logger.warning(f"RAG memory retrieval failed: {e}")
 
     # Retrieve from runbook source (already available via query_runbook mock)
     hits = await _retrieve_from_source(
@@ -65,6 +115,7 @@ async def retrieve_memory_node(state: IncidentAgentState) -> IncidentAgentState:
     # These will be added as real adapters become available
 
     state["memory_hits"] = memory_hits
+    state["evidence_items"] = evidence_items
     state["step_count"] = state.get("step_count", 0) + 1
 
     return state

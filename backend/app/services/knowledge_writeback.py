@@ -128,10 +128,18 @@ class KnowledgeWritebackService:
         return archive_path
 
     def _do_writeback(self, record: IncidentKnowledgeWriteback, content: Dict[str, Any], metadata: Dict[str, Any]):
-        """Actual writeback implementation. Currently a stub that logs."""
+        """Write confirmed RCA into the RAG knowledge store."""
         logger.info(
             f"Writing knowledge for run {record.run_id} to {record.target}: "
             f"root_cause={content.get('root_cause', 'unknown')}"
         )
-        # In production, this would call the gateway to write to a knowledge store
-        # e.g., gateway.call_tool("write_runbook_entry", {...})
+        from app.rag.writer import write_back_confirmed_rca
+        from app.repositories.runs_repo import RunsRepo
+
+        result = write_back_confirmed_rca(
+            run_id=record.run_id,
+            rca_repo=self.rca_repo,
+            runs_repo=RunsRepo(self.db),
+        )
+        if result is None:
+            raise ValueError(f"RCA for run {record.run_id} is not confirmed or missing")

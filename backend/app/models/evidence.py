@@ -16,7 +16,7 @@ class EvidenceItem(BaseModel):
         ..., description="Tool that generated this evidence"
     )  # 产生该证据的工具名称
     category: str = Field(
-        ..., description="Evidence category (logs/metrics/deployments/runbook)"
+        ..., description="Evidence category (logs/metrics/deployments/runbook/history)"
     )  # 证据类别（日志/指标/发布信息/文档等）
     source_ref: str = Field(
         ..., description="Reference to source (query ID, URL, etc.)"
