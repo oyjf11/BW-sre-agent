@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
 > 生成时间: 2026-04-06 | 更新时间: 2026-04-08
-> Phase 1-4 已完成，当前处于 Phase 5；Task 5.1、Task 5.1.5 与 Task 5.2 已完成。
+> Phase 1-4 已完成，Phase 5 已完成；当前进入 Phase 6（RAG 知识检索与写回）。
 
 ---
 
@@ -225,7 +225,7 @@
 - CMS endpoint 按 `ALIBABA_REGION_ID` 构造，与 SLB endpoint 保持一致
 - 备注：真实 SLB + CMS 联调依赖阿里云 AK/SK 与 region 配置
 
-### Task 5.4: OSS 适配器（写归档）
+### Task 5.4: OSS 适配器（写归档） — ✅ 已完成（2026-05-28）
 
 **目标**: RCA 报告和证据包归档到 OSS
 
@@ -244,11 +244,20 @@
 - RCA 报告在 OSS 对应 bucket 中可查到
 - 非 `rca/` / `evidence/` 前缀的写入被拒绝
 
+**完成说明**:
+- 已实现 `oss_client.py`，复用阿里云 AK/SK 配置，新增 `ALIBABA_OSS_BUCKET` / `ALIBABA_OSS_ENDPOINT`，并强制只允许写入 `rca/` 与 `evidence/` 前缀
+- 已实现 `oss_adapter.py`，提供 `write_rca_to_oss` 和 `write_evidence_to_oss` 两个异步工具函数
+- 已在 `adapters/__init__.py` 中补齐 mock OSS 写入函数
+- 已在 `gateway.py` 中注册 OSS 工具元数据，并在 real 模式下路由到真实 OSS adapter
+- 已在 `rca_node` 中 best-effort 写入 RCA markdown 和 evidence bundle，OSS 失败不阻塞主故障处置流程
+- 已补充并通过后端测试：`PYTHONPATH=. pytest app/tests/test_oss_adapter.py -q`（16 passed）
+- 备注：真实 OSS 联调依赖 `ALIBABA_ACCESS_KEY_ID` / `ALIBABA_ACCESS_KEY_SECRET` / `ALIBABA_OSS_BUCKET` / `ALIBABA_OSS_ENDPOINT`
+
 ---
 
-## Phase 6: RAG 知识检索与写回（P1，预计 3-4 天）
+## Phase 6: RAG 知识检索与写回（P1，预计 3-4 天） — ✅ 已完成（2026-05-28）
 
-### Task 6.1: 知识库索引与检索
+### Task 6.1: 知识库索引与检索 — ✅ 已完成（2026-05-28）
 
 **目标**: planner/diagnose 节点能检索历史 RCA 和 Runbook
 
@@ -276,6 +285,20 @@
 **验收**:
 - 提交一条工单后，如果有历史同类 RCA，evidence 中出现 category="history" 的条目
 - 手工确认 RCA 后，下次同类工单能检索到
+
+**完成说明**:
+- 已新增 `backend/app/rag/schemas.py`，定义 `KnowledgeDocument`、`RetrievedChunk`、`IndexingResult`
+- 已新增 `backend/app/rag/embeddings.py`，提供 BGE embedding lazy factory，默认模型为 `BAAI/bge-small-zh-v1.5`
+- 已新增 `backend/app/rag/store.py`，使用 ChromaDB `PersistentClient` + LlamaIndex `ChromaVectorStore` / `VectorStoreIndex`
+- 已新增 `backend/app/rag/indexer.py`，使用 `SimpleDirectoryReader` 读取本地 Runbook，使用 `SentenceSplitter` 切分，并支持批量索引 DB 中 `confirmed_by_human=1` 的 RCA
+- 已新增 `backend/app/rag/retriever.py` 与 `backend/app/rag/reranker.py`，支持 LlamaIndex semantic retrieval、metadata filter、可选 BGE CrossEncoder rerank、以及转换为 `category="history"` 的 `EvidenceItem`
+- 已新增 `backend/app/rag/writer.py`，人工确认 RCA 后可增量写回知识库
+- 已在 `retrieve_memory_node` 中接入 RAG，检索命中会同时写入 `memory_hits` 和 `evidence_items`
+- 已在 `KnowledgeWritebackService._do_writeback()` 中接入 `write_back_confirmed_rca(...)`
+- 已补充并通过后端测试：`test_rag_embeddings.py`、`test_rag_indexer.py`、`test_rag_retriever.py`、`test_rag_writer.py`、`test_retrieve_memory_rag.py`
+- 验证命令：`/Users/ouyangjinfeng/miniconda3/bin/python -m pytest app/tests/test_rag_embeddings.py app/tests/test_rag_retriever.py app/tests/test_rag_indexer.py app/tests/test_rag_writer.py app/tests/test_retrieve_memory_rag.py -q`（14 passed）
+- 全量验证命令：`/Users/ouyangjinfeng/miniconda3/bin/python -m pytest app/tests/ -x -q`（155 passed）
+- 备注：RAG 生产代码中已移除 `InMemoryKnowledgeStore` / `JsonKnowledgeStore` 替身；测试只在边界处 monkeypatch LlamaIndex 调用，避免下载真实模型但不替代生产实现
 
 ---
 
@@ -582,10 +605,10 @@ Phase 5 执行顺序:
   Task 5.1.5(应用日志 query_logs) ── ✅ 已完成（2026-04-08）
   Task 5.2  (K8s 适配器)         ── ✅ 已完成（2026-04-08）
   Task 5.3  (SLB 适配器)         ── ✅ 已完成（2026-05-11）
-  Task 5.4  (OSS 适配器)         ─┤── 互相独立，可并行
+  Task 5.4  (OSS 适配器)         ── ✅ 已完成（2026-05-28）
 
-Phase 6 (Task 6.1)          ─┐
-Phase 7 (Task 7.1)          ─┤── 与 Phase 5 后半段并行
+Phase 6 (Task 6.1)          ── ✅ 已完成（2026-05-28）
+Phase 7 (Task 7.1)          ─┤── 可继续推进
                              ─┘
 
 Phase 8 (Task 8.1)         ── 最后，2-3 天
