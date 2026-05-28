@@ -33,7 +33,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export function DashboardPage() {
+export function DashboardPage({ onOpenLlmConfig }: { onOpenLlmConfig?: () => void }) {
   const { t } = useI18n();
   const [runsList, setRunsList] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +50,11 @@ export function DashboardPage() {
       }
     };
     fetchRuns();
+
+    const configured = localStorage.getItem('opspilot_llm_configured');
+    if (!configured && onOpenLlmConfig) {
+      onOpenLlmConfig();
+    }
   }, []);
 
   const recentRuns = runsList.slice(0, 10);

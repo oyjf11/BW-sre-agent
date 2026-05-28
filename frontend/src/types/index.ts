@@ -118,3 +118,14 @@ export interface RcaReport {
   prevention_items: string[];
   confirmed_by_human: boolean;
 }
+
+export interface LlmConfig {
+  provider: string;
+  openai_api_key: string;
+  openai_model: string;
+  minimax_api_key: string;
+  minimax_group_id: string;
+  minimax_model: string;
+  deepseek_api_key: string;
+  deepseek_model: string;
+}

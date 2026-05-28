@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
-from app.api import incidents_router, approvals_router
+from app.api import incidents_router, approvals_router, settings_router
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,7 @@ app.add_middleware(
 
 app.include_router(incidents_router)
 app.include_router(approvals_router)
+app.include_router(settings_router)
 
 
 @app.get("/healthz")
