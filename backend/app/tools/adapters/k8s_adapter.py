@@ -285,3 +285,69 @@ async def query_k8s_pod_logs_summary(
         "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
     }
     return _truncate_logs_summary(payload)
+
+
+async def query_deployments(
+    service: str,
+    env: str,
+    time_range: Dict[str, str] = None,
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    all_deployments = await asyncio.to_thread(client.list_all_deployments)
+    result_deployments = []
+    svc_lower = service.lower()
+
+    for dep in all_deployments:
+        dep_namespace = dep.metadata.namespace
+        dep_name = dep.metadata.name
+        dep_lower = dep_name.lower()
+
+        if svc_lower not in dep_lower and service not in dep_namespace:
+            continue
+
+        containers = dep.spec.template.spec.containers or []
+        images = [c.image for c in containers if c.image]
+
+        conditions = dep.status.conditions or []
+        available = any(
+            c.type == "Available" and c.status == "True" for c in conditions
+        )
+        progressing = any(
+            c.type == "Progressing" and c.status == "True" for c in conditions
+        )
+
+        if available:
+            dep_status = "success"
+        elif progressing:
+            dep_status = "progressing"
+        else:
+            dep_status = "failed"
+
+        last_rollout = None
+        if dep.metadata.creation_timestamp:
+            last_rollout = dep.metadata.creation_timestamp.isoformat()
+
+        result_deployments.append({
+            "deployment_id": f"{dep_namespace}/{dep_name}",
+            "service": dep_name,
+            "namespace": dep_namespace,
+            "images": images,
+            "version": images[0] if images else "",
+            "replicas": dep.status.replicas or 0,
+            "ready_replicas": dep.status.ready_replicas or 0,
+            "timestamp": last_rollout or "",
+            "status": dep_status,
+            "conditions": [
+                {"type": c.type, "status": c.status, "message": c.message or ""}
+                for c in conditions
+            ],
+        })
+
+    return {
+        "deployments": result_deployments,
+        "count": len(result_deployments),
+        "service": service,
+        "env": env,
+        "response_size_limit_kb": 128,
+    }

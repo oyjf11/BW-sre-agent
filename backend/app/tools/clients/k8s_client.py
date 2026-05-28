@@ -39,6 +39,7 @@ def _load_kube_config(config_path: str, context: str) -> str:
 @lru_cache(maxsize=8)
 def _get_api_clients(config_path: str, context: str):
     source = _load_kube_config(config_path, context)
+    k8s_client_lib.Configuration._default.verify_ssl = False
     return (
         k8s_client_lib.AppsV1Api(),
         k8s_client_lib.CoreV1Api(),
@@ -147,3 +148,14 @@ class K8sClient:
             tail_lines=tail_lines,
             timestamps=True,
         )
+
+    def list_all_deployments(self) -> list:
+        deployments = []
+        apps_api, _, _ = self._apis()
+        for ns in self.allowed_namespaces:
+            try:
+                deps = apps_api.list_namespaced_deployment(namespace=ns)
+                deployments.extend(deps.items)
+            except Exception:
+                pass
+        return deployments

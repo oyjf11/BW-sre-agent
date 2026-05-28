@@ -600,3 +600,48 @@ async def mock_query_db_variables(**kwargs) -> Dict[str, Any]:
         "variables": variables,
         "response_size_limit_kb": 64,
     }
+
+
+async def mock_write_rca_to_oss(
+    run_id: str,
+    service: str = "",
+    env: str = "",
+    content: str = "",
+    content_type: str = "markdown",
+    **kwargs,
+) -> Dict[str, Any]:
+    """Return mock OSS RCA write result."""
+    ext = "md" if content_type != "json" else "json"
+    svc_part = service or "unknown"
+    key = f"rca/{svc_part}/{run_id}.{ext}"
+    return {
+        "run_id": run_id,
+        "service": service,
+        "env": env,
+        "oss_key": key,
+        "oss_url": f"https://mock-bucket.oss-cn-hangzhou.aliyuncs.com/{key}",
+        "bucket": "mock-bucket",
+        "content_type": content_type,
+        "response_size_limit_kb": 64,
+    }
+
+
+async def mock_write_evidence_to_oss(
+    run_id: str,
+    service: str = "",
+    env: str = "",
+    content: str = "",
+    **kwargs,
+) -> Dict[str, Any]:
+    """Return mock OSS evidence write result."""
+    svc_part = service or "unknown"
+    key = f"evidence/{svc_part}/{run_id}.json"
+    return {
+        "run_id": run_id,
+        "service": service,
+        "env": env,
+        "oss_key": key,
+        "oss_url": f"https://mock-bucket.oss-cn-hangzhou.aliyuncs.com/{key}",
+        "bucket": "mock-bucket",
+        "response_size_limit_kb": 64,
+    }

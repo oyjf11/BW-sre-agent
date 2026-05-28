@@ -25,6 +25,8 @@ from app.tools.adapters import mock_query_db_processlist
 from app.tools.adapters import mock_query_db_slow_queries
 from app.tools.adapters import mock_query_db_table_status
 from app.tools.adapters import mock_query_db_variables
+from app.tools.adapters import mock_write_rca_to_oss
+from app.tools.adapters import mock_write_evidence_to_oss
 from app.tools.adapters.mysql_adapter import (
     query_db_processlist as real_query_db_processlist,
     query_db_slow_queries as real_query_db_slow_queries,
@@ -37,10 +39,18 @@ from app.tools.adapters.k8s_adapter import (
     query_k8s_pods as real_query_k8s_pods,
     query_k8s_events as real_query_k8s_events,
     query_k8s_pod_logs_summary as real_query_k8s_pod_logs_summary,
+    query_deployments as real_query_deployments,
 )
 from app.tools.adapters.slb_adapter import (
     query_lb_health_status as real_query_lb_health_status,
     query_lb_traffic_metrics as real_query_lb_traffic_metrics,
+)
+from app.tools.adapters.oss_adapter import (
+    write_rca_to_oss as real_write_rca_to_oss,
+    write_evidence_to_oss as real_write_evidence_to_oss,
+)
+from app.tools.adapters.metrics_adapter import (
+    query_metrics as real_query_metrics,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,9 +101,9 @@ def select_adapter(tool_name: str):
         if tool_name == "query_logs":
             return real_query_logs_from_db
         elif tool_name == "query_metrics":
-            return get_real_query_metrics
+            return real_query_metrics
         elif tool_name == "query_deployments":
-            return get_real_query_deployments
+            return real_query_deployments
         elif tool_name == "query_runbook":
             return get_real_query_runbook
         elif tool_name == "execute_action":
@@ -118,6 +128,10 @@ def select_adapter(tool_name: str):
             return real_query_lb_health_status
         elif tool_name == "query_lb_traffic_metrics":
             return real_query_lb_traffic_metrics
+        elif tool_name == "write_rca_to_oss":
+            return real_write_rca_to_oss
+        elif tool_name == "write_evidence_to_oss":
+            return real_write_evidence_to_oss
     return None
 
 
@@ -142,6 +156,8 @@ register_handler("query_db_processlist", mock_query_db_processlist)
 register_handler("query_db_slow_queries", mock_query_db_slow_queries)
 register_handler("query_db_table_status", mock_query_db_table_status)
 register_handler("query_db_variables", mock_query_db_variables)
+register_handler("write_rca_to_oss", mock_write_rca_to_oss)
+register_handler("write_evidence_to_oss", mock_write_evidence_to_oss)
 
 register_tool(
     ToolMetadata(
@@ -473,6 +489,49 @@ register_tool(
         risk_level="LOW",
         requires_approval=False,
         timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="write_rca_to_oss",
+        description="Write RCA report markdown to Alibaba Cloud OSS for archival",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "content": {"type": "string"},
+                "content_type": {"type": "string"},
+            },
+            "required": ["run_id", "content"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=30000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="write_evidence_to_oss",
+        description="Write evidence bundle JSON to Alibaba Cloud OSS for archival",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["run_id", "content"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=30000,
         retries=1,
     )
 )

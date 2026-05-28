@@ -12,6 +12,9 @@ from app.llm_client import llm_client
 from datetime import datetime
 import uuid
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 MAX_STEPS = 30
@@ -123,7 +126,7 @@ Respond in JSON format."""
 
     try:
         llm_response = llm_client.complete_sync(
-            triage_prompt, system_prompt="你是一个SRE故障处理助手。请用中文回复。"
+            triage_prompt, system_prompt="你是一个SRE故障处理助手。请始终使用简体中文回复。"
         )
     except Exception:
         return None
@@ -656,7 +659,7 @@ Respond in JSON format only."""
     llm_response = ""
     try:
         llm_response = llm_client.complete_sync(
-            diagnose_prompt, system_prompt="你是一个SRE故障诊断助手。请用中文回复。"
+            diagnose_prompt, system_prompt="你是一个SRE故障诊断助手。请始终使用简体中文回复。"
         )
         logger.info(f"DIAGNOSE_NODE: LLM response: {llm_response[:100]}...")
     except Exception as e:
@@ -1455,7 +1458,7 @@ Respond in JSON format only."""
     llm_response = ""
     try:
         llm_response = llm_client.complete_sync(
-            rca_prompt, system_prompt="你是一个SRE根因分析助手。请用中文回复。"
+            rca_prompt, system_prompt="你是一个SRE根因分析助手。请始终使用简体中文回复。"
         )
     except Exception:
         llm_response = ""
@@ -1535,6 +1538,65 @@ Respond in JSON format only."""
         supporting_evidence_ids=supporting_evidence_ids,
         executed_action_ids=executed_action_ids,
     )
+
+    archive_ref = ""
+    try:
+        rca_response = asyncio.run(
+            gateway.call_tool(
+                ToolRequest(
+                    tool_name="write_rca_to_oss",
+                    params={
+                        "run_id": state.get("run_id", "unknown"),
+                        "service": service,
+                        "env": env,
+                        "content": markdown_report,
+                        "content_type": "markdown",
+                    },
+                    run_id=state.get("run_id", ""),
+                )
+            )
+        )
+        if rca_response.success and rca_response.result:
+            archive_ref = rca_response.result.get("oss_url", "")
+    except Exception:
+        logger.warning(f"Failed to write RCA to OSS for run {state.get('run_id')}")
+
+    evidence_json = ""
+    try:
+        evidence_data = [
+            {
+                "evidence_id": ev.evidence_id if hasattr(ev, "evidence_id") else ev.get("evidence_id"),
+                "source": ev.source if hasattr(ev, "source") else ev.get("source"),
+                "category": ev.category if hasattr(ev, "category") else ev.get("category"),
+                "content": ev.content if hasattr(ev, "content") else ev.get("content"),
+            }
+            for ev in evidence_items
+            if ev is not None
+        ]
+        evidence_json = json.dumps(evidence_data, ensure_ascii=False, default=str)
+    except Exception:
+        logger.warning(f"Failed to serialize evidence for run {state.get('run_id')}")
+
+    if evidence_json:
+        try:
+            asyncio.run(
+                gateway.call_tool(
+                    ToolRequest(
+                        tool_name="write_evidence_to_oss",
+                        params={
+                            "run_id": state.get("run_id", "unknown"),
+                            "service": service,
+                            "env": env,
+                            "content": evidence_json,
+                        },
+                        run_id=state.get("run_id", ""),
+                    )
+                )
+            )
+        except Exception:
+            logger.warning(f"Failed to write evidence to OSS for run {state.get('run_id')}")
+
+    report.archive_ref = archive_ref
 
     state["rca_report"] = report
     state["final_outcome"] = run_outcome

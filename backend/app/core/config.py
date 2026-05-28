@@ -127,7 +127,6 @@ def get_settings() -> Settings:
     settings.validate_for_production()
     return settings
 
-
 def clear_settings_cache():
     """Clear cached settings so next call re-reads .env."""
     get_settings.cache_clear()
