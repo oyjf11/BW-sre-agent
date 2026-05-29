@@ -22,6 +22,7 @@ vi.mock('../services/runs', () => ({
     getRunEvidence: vi.fn(),
     getRunDiagnosis: vi.fn(),
     getRunRemediation: vi.fn(),
+    getRunTrace: vi.fn(),
   },
 }));
 
@@ -58,6 +59,12 @@ describe('RunDetailPage', () => {
       run_id: 'run-123',
       remediation_plan: undefined,
     });
+    vi.mocked(runsModule.runs.getRunTrace).mockResolvedValue({
+      run_id: 'run-123',
+      provider: 'local',
+      trace_url: '/incidents/runs/run-123/trace',
+      spans: [],
+    } as any);
   });
 
   it('renders loading state', () => {
@@ -175,5 +182,24 @@ describe('RunDetailPage', () => {
 
     await waitFor(() => expect(screen.getByText('Human approval required before execution')).toBeInTheDocument());
     expect(screen.getByRole('link', { name: 'Review approvals' })).toHaveAttribute('href', '/approvals');
+  });
+
+  it('renders trace link in quick actions', async () => {
+    vi.mocked(runsModule.runs.getRun).mockResolvedValue(mockRun as any);
+    vi.mocked(runsModule.runs.getRunEvents).mockResolvedValue(mockEvents);
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/runs/run-123']}>
+        <Routes>
+          <Route path="/runs/:id" element={<RunDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByText('api-gateway')).toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'View Trace' })).toHaveAttribute(
+      'href',
+      '/incidents/runs/run-123/trace',
+    );
   });
 });

@@ -14,6 +14,7 @@ import type {
   EvidenceItem,
   RootCauseCandidate,
   RemediationPlan,
+  RunTrace,
 } from '../types';
 
 const TERMINAL_STATUSES = new Set(['COMPLETED', 'FAILED', 'WAITING_HUMAN']);
@@ -45,6 +46,7 @@ export function RunDetailPage() {
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [diagnosis, setDiagnosis] = useState<RootCauseCandidate[]>([]);
   const [remediationPlan, setRemediationPlan] = useState<RemediationPlan | undefined>();
+  const [runTrace, setRunTrace] = useState<RunTrace | null>(null);
   const [activeTab, setActiveTab] = useState<RunTab>('events');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,10 +56,11 @@ export function RunDetailPage() {
     if (!id) return;
 
     const loadArtifactData = async () => {
-      const [evidenceResult, diagnosisResult, remediationResult] = await Promise.allSettled([
+      const [evidenceResult, diagnosisResult, remediationResult, traceResult] = await Promise.allSettled([
         runs.getRunEvidence(id),
         runs.getRunDiagnosis(id),
         runs.getRunRemediation(id),
+        runs.getRunTrace(id),
       ]);
 
       if (evidenceResult.status === 'fulfilled') {
@@ -84,6 +87,10 @@ export function RunDetailPage() {
         throw remediationResult.reason;
       } else {
         setRemediationPlan(undefined);
+      }
+
+      if (traceResult.status === 'fulfilled') {
+        setRunTrace(traceResult.value);
       }
     };
 
@@ -247,6 +254,19 @@ export function RunDetailPage() {
                 </svg>
                 {t('run.viewRca')}
               </Link>
+              {runTrace?.trace_url && (
+                <a
+                  href={runTrace.trace_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-secondary w-full justify-start cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4m-4-8h6m0 0v6m0-6L10 16" />
+                  </svg>
+                  {t('run.viewTrace')}
+                </a>
+              )}
             </div>
           </div>
 

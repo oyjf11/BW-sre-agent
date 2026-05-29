@@ -72,6 +72,7 @@
     "noEvents": "暂无事件",
     "quickActions": "快捷操作",
     "viewRca": "查看根因分析",
+    "viewTrace": "查看链路追踪",
     "incident": "事件",
     "createNew": "新建事件",
     "tabs": {

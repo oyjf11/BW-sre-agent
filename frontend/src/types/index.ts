@@ -40,6 +40,34 @@ export interface RunEvent {
   timestamp: string;
 }
 
+export interface TraceEvent {
+  name: string;
+  timestamp: string;
+  data: Record<string, unknown>;
+}
+
+export interface TraceSpan {
+  span_id: string;
+  name: string;
+  run_id?: string;
+  parent_id?: string;
+  start_time: number;
+  start_timestamp: string;
+  end_time?: number;
+  end_timestamp?: string;
+  duration_ms?: number;
+  status?: string;
+  error?: string;
+  events: TraceEvent[];
+}
+
+export interface RunTrace {
+  run_id: string;
+  provider: string;
+  trace_url: string;
+  spans: TraceSpan[];
+}
+
 export interface EvidenceItem {
   evidence_id: string;
   run_id?: string;

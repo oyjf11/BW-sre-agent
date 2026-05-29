@@ -6,6 +6,7 @@ import os
 import inspect
 from numbers import Integral
 from tenacity import retry, stop_after_attempt, wait_exponential
+from app.tracing import tracer
 
 from app.tools.schemas import ToolRequest, ToolResponse, ToolMetadata, register_tool, TOOL_REGISTRY
 from app.tools.adapters import query_logs as mock_query_logs
@@ -547,8 +548,15 @@ class ToolGateway:
 
     async def call_tool(self, request: ToolRequest) -> ToolResponse:
         start_time = time.time()
+        span_id = tracer.start_span(
+            f"tool.{request.tool_name}",
+            run_id=request.run_id,
+            parent_id=tracer.get_active_span_id(),
+        )
+        tracer.add_event(span_id, "tool_called", {"params": request.params})
 
         if request.tool_name not in self.handlers:
+            tracer.end_span(span_id, status="error", error="tool_not_found")
             return ToolResponse(
                 tool_name=request.tool_name,
                 success=False,
@@ -560,6 +568,7 @@ class ToolGateway:
         validation_error = self._validate_params(request.params, metadata)
         if validation_error:
             latency = int((time.time() - start_time) * 1000)
+            tracer.end_span(span_id, status="error", error=validation_error)
             return ToolResponse(
                 tool_name=request.tool_name,
                 success=False,
@@ -582,6 +591,12 @@ class ToolGateway:
 
             latency = int((time.time() - start_time) * 1000)
             self._log_audit(request, latency, True, result, adapter_info=adapter_info)
+            tracer.add_event(
+                span_id,
+                "tool_succeeded",
+                {"adapter": adapter_info, "latency_ms": latency},
+            )
+            tracer.end_span(span_id, status="ok")
 
             return ToolResponse(
                 tool_name=request.tool_name,
@@ -593,6 +608,7 @@ class ToolGateway:
             latency = int((time.time() - start_time) * 1000)
             error_result = {"error": str(e)}
             self._log_audit(request, latency, False, error_result, adapter_info=adapter_info)
+            tracer.end_span(span_id, status="error", error=str(e))
 
             return ToolResponse(
                 tool_name=request.tool_name,

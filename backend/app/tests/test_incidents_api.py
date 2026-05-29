@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.incidents import router, get_db
 from app.models.db_models import Base, IncidentCheckpoint, IncidentRun, RunStatusEnum
+from app.tracing import tracer
 
 
 def create_test_client():
@@ -122,3 +123,22 @@ def test_get_run_diagnosis_returns_404_without_checkpoint():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "No checkpoint found"
+
+
+def test_get_run_trace_returns_spans_and_local_url():
+    app, session_factory = create_test_client()
+    seed_run_with_checkpoint(session_factory)
+    tracer.clear()
+    span_id = tracer.start_span("graph.run", run_id="run-123")
+    tracer.add_event(span_id, "node_started", {"node_name": "node_intake"})
+    tracer.end_span(span_id)
+
+    with TestClient(app) as client:
+        response = client.get("/incidents/runs/run-123/trace")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_id"] == "run-123"
+    assert payload["provider"] == "local"
+    assert payload["trace_url"].endswith("/incidents/runs/run-123/trace")
+    assert payload["spans"][0]["name"] == "graph.run"

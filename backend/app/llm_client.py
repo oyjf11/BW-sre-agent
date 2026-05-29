@@ -6,6 +6,7 @@ import asyncio
 import aiohttp
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from app.tracing import tracer
 
 # Load .env file if exists
 env_path = Path(__file__).parent.parent / ".env"
@@ -65,14 +66,36 @@ class LLMClient:
         max_tokens: int = 2000,
     ) -> str:
         """Generate completion from prompt."""
-        
         provider = _get_llm_provider()
-        if provider == "minimax":
-            return await self._minimax_complete(prompt, system_prompt, temperature, max_tokens)
-        elif provider == "deepseek":
-            return await self._deepseek_complete(prompt, system_prompt, temperature, max_tokens)
-        else:
-            return await self._openai_complete(prompt, system_prompt, temperature, max_tokens)
+        span_id = tracer.start_span(
+            f"llm.{provider}",
+            parent_id=tracer.get_active_span_id(),
+        )
+        tracer.add_event(
+            span_id,
+            "llm_request",
+            {
+                "provider": provider,
+                "model": self._model_for_provider(provider),
+                "has_system_prompt": bool(system_prompt),
+                "prompt_length": len(prompt),
+            },
+        )
+
+        try:
+            if provider == "minimax":
+                result = await self._minimax_complete(prompt, system_prompt, temperature, max_tokens)
+            elif provider == "deepseek":
+                result = await self._deepseek_complete(prompt, system_prompt, temperature, max_tokens)
+            else:
+                result = await self._openai_complete(prompt, system_prompt, temperature, max_tokens)
+            tracer.add_event(span_id, "llm_response", {"response_length": len(result)})
+            tracer.end_span(span_id, status="ok")
+            return result
+        except Exception as exc:
+            tracer.end_span(span_id, status="error", error=str(exc))
+            raise
+
     
     async def _minimax_complete(
         self, 
@@ -175,6 +198,13 @@ class LLMClient:
         logger.warning("Using LLM fallback response")
         return "fallback_response"
 
+    def _model_for_provider(self, provider: str) -> str:
+        if provider == "minimax":
+            return self.minimax_model
+        if provider == "deepseek":
+            return self.deepseek_model
+        return self.model
+
     async def _deepseek_complete(
         self,
         prompt: str,
@@ -257,12 +287,34 @@ class LLMClient:
     def complete_sync(self, prompt: str, system_prompt: Optional[str] = None, temperature: float = 0.7) -> str:
         """Synchronous LLM call using requests."""
         provider = _get_llm_provider()
-        if provider == "minimax":
-            return self._minimax_complete_sync(prompt, system_prompt, temperature)
-        elif provider == "deepseek":
-            return self._deepseek_complete_sync(prompt, system_prompt, temperature)
-        else:
-            return self._openai_complete_sync(prompt, system_prompt, temperature)
+        span_id = tracer.start_span(
+            f"llm.{provider}",
+            parent_id=tracer.get_active_span_id(),
+        )
+        tracer.add_event(
+            span_id,
+            "llm_request",
+            {
+                "provider": provider,
+                "model": self._model_for_provider(provider),
+                "has_system_prompt": bool(system_prompt),
+                "prompt_length": len(prompt),
+                "mode": "sync",
+            },
+        )
+        try:
+            if provider == "minimax":
+                result = self._minimax_complete_sync(prompt, system_prompt, temperature)
+            elif provider == "deepseek":
+                result = self._deepseek_complete_sync(prompt, system_prompt, temperature)
+            else:
+                result = self._openai_complete_sync(prompt, system_prompt, temperature)
+            tracer.add_event(span_id, "llm_response", {"response_length": len(result)})
+            tracer.end_span(span_id, status="ok")
+            return result
+        except Exception as exc:
+            tracer.end_span(span_id, status="error", error=str(exc))
+            raise
     
     def _minimax_complete_sync(self, prompt: str, system_prompt: Optional[str], temperature: float) -> str:
         """Synchronous MiniMax API call using requests."""

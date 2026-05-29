@@ -308,6 +308,21 @@
 
 **目标**: 每次 run 的执行路径可在 LangSmith 或 Langfuse 中回放
 
+**当前进度（2026-05-29）**:
+- 已完成本地 tracing 基础闭环：
+  - `backend/app/tracing.py` 已支持 span / event 记录与 run 级上下文
+  - `GraphRunner`、`ToolGateway`、`LLMClient` 已接入关键 span 埋点
+  - 新增 `GET /incidents/runs/{run_id}/trace`
+  - `RunDetailPage` 已增加 `View Trace` 快捷入口
+- 已增加 tracing 配置骨架：
+  - `tracing_provider`
+  - `tracing_project`
+  - `tracing_base_url`
+  - `tracing_public_base_url`
+- 尚未完成外部 provider 真接入：
+  - LangSmith / Langfuse SDK 依赖与认证配置未落地
+  - 还不能在外部 tracing 控制台直接回放完整 trace
+
 **步骤**:
 1. 检查 `backend/app/tracing.py` 现有实现
 2. 选择 LangSmith 或 Langfuse：

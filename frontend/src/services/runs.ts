@@ -3,6 +3,7 @@ import type {
   RunSummary,
   RunDetail,
   RunEvent,
+  RunTrace,
   RcaReport,
   IncidentTicket,
   EvidenceItem,
@@ -50,6 +51,9 @@ export const runs = {
       : `/incidents/runs/${runId}/events`;
     return api.get<RunEvent[]>(url);
   },
+
+  getRunTrace: (runId: string) =>
+    api.get<RunTrace>(`/incidents/runs/${runId}/trace`),
 
   getRunEvidence: (runId: string) =>
     api.get<EvidenceItem[]>(`/incidents/runs/${runId}/evidence`),

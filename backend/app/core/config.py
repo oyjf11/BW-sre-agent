@@ -92,6 +92,11 @@ class Settings(BaseSettings):
     rag_top_k: int = 5
     rag_enable_reranker: bool = False
 
+    tracing_provider: str = "local"
+    tracing_project: str = "opspilot"
+    tracing_base_url: str = ""
+    tracing_public_base_url: str = ""
+
     def validate_for_production(self):
         """Fail-fast validation for production environment."""
         errors = []

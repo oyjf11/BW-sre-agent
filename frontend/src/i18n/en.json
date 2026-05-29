@@ -72,6 +72,7 @@
     "noEvents": "No events yet",
     "quickActions": "Quick Actions",
     "viewRca": "View RCA",
+    "viewTrace": "View Trace",
     "incident": "Incident",
     "createNew": "Create New Incident",
     "tabs": {

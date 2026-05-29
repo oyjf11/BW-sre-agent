@@ -17,6 +17,7 @@ from app.repositories.evidence_repo import EvidenceRepo
 from app.repositories.runs_repo import RunsRepo
 from app.repositories.rca_repo import RcaRepo
 from app.services.event_bus import EventBus, EventType, event_bus
+from app.tracing import tracer
 
 import uuid
 
@@ -191,12 +192,32 @@ class GraphRunner:
             self._initialize_persisted_evidence_ids(initial_state)
 
         graph = create_incident_graph()
+        graph_span_id = tracer.start_span("graph.run", run_id=run_id)
+        run_ctx_token = tracer.set_run_context(run_id)
+        active_node_spans: Dict[str, str] = {}
+        node_ctx_tokens: Dict[str, Any] = {}
 
         # Inject event hook so node wrappers can emit NODE_STARTED / NODE_FAILED
         # before and after each node executes (true pre/post execution timing).
         def _node_hook(event_type, node_name, *, message="", level="INFO", data=None):
             if event_type == EventType.NODE_STARTED and node_name:
+                node_span_id = tracer.start_span(
+                    f"node.{node_name}",
+                    run_id=run_id,
+                    parent_id=graph_span_id,
+                )
+                tracer.add_event(node_span_id, "node_started", {"node_name": node_name})
+                active_node_spans[node_name] = node_span_id
+                node_ctx_tokens[node_name] = tracer.set_step_context(node_span_id)
+            if event_type == EventType.NODE_STARTED and node_name:
                 self._update_run(run_id, current_node=node_name)
+            if event_type == EventType.NODE_FAILED and node_name:
+                node_span_id = active_node_spans.pop(node_name, None)
+                if node_span_id:
+                    tracer.end_span(node_span_id, status="error", error=message or level)
+                token = node_ctx_tokens.pop(node_name, None)
+                if token is not None:
+                    tracer.reset_step_context(token)
             self._emit(
                 run_id, event_type, node_name=node_name, message=message, data=data, level=level
             )
@@ -232,6 +253,13 @@ class GraphRunner:
                         message=f"Node {node_name} completed",
                         data={"step_count": step},
                     )
+                    node_span_id = active_node_spans.pop(node_name, None)
+                    if node_span_id:
+                        tracer.add_event(node_span_id, "node_completed", {"step_count": step})
+                        tracer.end_span(node_span_id, status="ok")
+                    token = node_ctx_tokens.pop(node_name, None)
+                    if token is not None:
+                        tracer.reset_step_context(token)
 
             # Determine final status
             status = final_state.get("status", RunStatus.COMPLETED)
@@ -255,6 +283,7 @@ class GraphRunner:
                 self._emit(
                     run_id, EventType.RUN_COMPLETED, message=f"Run ended with status {status_value}"
                 )
+            tracer.end_span(graph_span_id, status="ok")
 
             return final_state
 
@@ -277,6 +306,13 @@ class GraphRunner:
                 message=f"Run failed: {error_msg[:200]}",
                 level="ERROR",
             )
+            for node_name, node_span_id in list(active_node_spans.items()):
+                tracer.end_span(node_span_id, status="error", error=error_msg[:200])
+                token = node_ctx_tokens.pop(node_name, None)
+                if token is not None:
+                    tracer.reset_step_context(token)
+            tracer.end_span(graph_span_id, status="error", error=error_msg[:200])
             raise
         finally:
+            tracer.reset_run_context(run_ctx_token)
             reset_node_event_hook(hook_token)

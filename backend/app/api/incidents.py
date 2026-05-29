@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from app.models.incident import IncidentTicket
@@ -19,7 +19,9 @@ from app.repositories import (
     CheckpointsRepo,
 )
 from app.graph.state import IncidentAgentState
+from app.core.config import get_settings
 from app.services.runtime import RuntimeService
+from app.tracing import tracer
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +85,34 @@ class RunEventResponse(BaseModel):
     timestamp: datetime
 
 
+class TraceEventResponse(BaseModel):
+    name: str
+    timestamp: str
+    data: Dict[str, Any]
+
+
+class TraceSpanResponse(BaseModel):
+    span_id: str
+    name: str
+    run_id: Optional[str] = None
+    parent_id: Optional[str] = None
+    start_time: float
+    start_timestamp: str
+    end_time: Optional[float] = None
+    end_timestamp: Optional[str] = None
+    duration_ms: Optional[int] = None
+    status: Optional[str] = None
+    error: Optional[str] = None
+    events: List[TraceEventResponse] = Field(default_factory=list)
+
+
+class RunTraceResponse(BaseModel):
+    run_id: str
+    provider: str
+    trace_url: str
+    spans: List[TraceSpanResponse]
+
+
 # ---------- helpers ----------
 
 def get_db():
@@ -136,6 +166,19 @@ def _load_latest_checkpoint_state(run_id: str, db) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail="Invalid checkpoint state")
 
     return state
+
+
+def _build_trace_url(run_id: str) -> str:
+    settings = get_settings()
+    base_url = settings.tracing_public_base_url or settings.tracing_base_url
+    provider = settings.tracing_provider.lower()
+    if provider == "langfuse" and base_url:
+        return f"{base_url.rstrip('/')}/project/{settings.tracing_project}/traces/{run_id}"
+    if provider == "langsmith" and base_url:
+        return f"{base_url.rstrip('/')}/o/{settings.tracing_project}/projects/p/default/runs/{run_id}"
+    if base_url:
+        return f"{base_url.rstrip('/')}/incidents/runs/{run_id}/trace"
+    return f"/incidents/runs/{run_id}/trace"
 
 
 # ---------- routes ----------
@@ -217,6 +260,22 @@ async def get_run_events(
     ts = datetime.fromisoformat(last_event_ts) if last_event_ts else None
     events = runtime.get_events(run_id, last_event_id=last_event_id, last_event_ts=ts)
     return [_event_to_response(ev) for ev in events]
+
+
+@router.get("/runs/{run_id}/trace", response_model=RunTraceResponse)
+async def get_run_trace(run_id: str, db=Depends(get_db)):
+    runs_repo = RunsRepo(db)
+    run = runs_repo.get(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    settings = get_settings()
+    return RunTraceResponse(
+        run_id=run_id,
+        provider=settings.tracing_provider,
+        trace_url=_build_trace_url(run_id),
+        spans=tracer.get_spans(run_id),
+    )
 
 
 @router.get("/runs/{run_id}/stream")

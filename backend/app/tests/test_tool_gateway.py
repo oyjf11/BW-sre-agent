@@ -3,11 +3,13 @@ import importlib
 
 from app.tools.gateway import ToolGateway
 from app.tools.schemas import ToolRequest
+from app.tracing import tracer
 
 
 class TestToolGateway:
     @pytest.mark.asyncio
     async def test_mock_adapter_calls_succeed(self):
+        tracer.clear()
         gateway = ToolGateway()
         request = ToolRequest(
             tool_name="query_logs",
@@ -20,6 +22,8 @@ class TestToolGateway:
         assert response.success is True
         assert response.result is not None
         assert response.result["_adapter_info"] == "mock"
+        spans = tracer.get_spans("run-001")
+        assert any(span["name"] == "tool.query_logs" for span in spans)
 
     @pytest.mark.asyncio
     async def test_real_adapter_fails_closed_when_not_configured(self, monkeypatch):

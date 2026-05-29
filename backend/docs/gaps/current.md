@@ -53,17 +53,20 @@
 
 ## P1：Phase 7 Tracing
 
-状态：只有本地内存 tracer。
+状态：进行中，已完成本地 tracing 闭环，外部 provider 未接入。
 
 当前已有：
 
 - `backend/app/tracing.py`
+- `GET /incidents/runs/{run_id}/trace`
+- GraphRunner / ToolGateway / LLMClient tracing 埋点
+- RunDetailPage trace 外链入口
 
 缺口：
 
 - LangSmith / Langfuse 依赖仍未启用
-- GraphRunner、Tool Gateway、LLM 调用还没有完整外部 trace
-- 前端 RunDetailPage 没有 trace 外链
+- 外部 tracing provider 还没有真实上报
+- 还缺少外部 trace id / public trace url 的真实回传
 
 ## P2：Phase 8 离线评测
 
