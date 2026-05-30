@@ -14,22 +14,23 @@
 
 ## P1：Phase 7 外部 Tracing Provider
 
-状态：进行中。
+状态：已完成代码接入，待真实控制台验收。
 
 当前已有：
 
 - `backend/app/tracing.py`
+- `backend/app/tracing_providers.py`
 - `GET /incidents/runs/{run_id}/trace`
 - GraphRunner / ToolGateway / LLMClient tracing 埋点
 - RunDetailPage trace 外链入口
-- tracing 配置骨架：`tracing_provider`、`tracing_project`、`tracing_base_url`、`tracing_public_base_url`
+- LangSmith / Langfuse provider 配置和 best-effort 上报
+- API 返回 `external_trace_id`、`external_root_span_id`、`external_trace_url`
 
-缺口：
+剩余验收：
 
-- LangSmith / Langfuse SDK 依赖与认证配置未落地
-- span/event 还未真实上报到外部 tracing 控制台
-- 外部 trace id / public trace url 尚未真实回传
-- 还缺一条真实 run 的外部 trace 回放验收记录
+- 使用真实 LangSmith 或 Langfuse 凭证运行一条工单
+- 在外部 tracing 控制台打开该 run 的 trace 页面
+- 确认 trace 包含 graph、node、tool、llm span
 
 ## P2：Phase 8 离线评测
 

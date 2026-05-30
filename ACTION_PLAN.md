@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
 > 生成时间: 2026-04-06 | 更新时间: 2026-05-30
-> Phase 1-6 已完成；当前处于 Phase 7（可观测性接入）。本地 tracing 闭环已完成，下一步是接入 LangSmith / Langfuse 外部 provider；Phase 8 离线评测尚未启动。
+> Phase 1-7 已完成代码接入；LangSmith / Langfuse 外部 provider 已落地，仍需真实控制台回放验收；Phase 8 离线评测尚未启动。
 
 ---
 
@@ -302,26 +302,27 @@
 
 ---
 
-## Phase 7: 可观测性接入（P1，预计 1-2 天） — 🚧 进行中
+## Phase 7: 可观测性接入（P1，预计 1-2 天） — ✅ 已完成代码接入，待真实控制台验收
 
 ### Task 7.1: Tracing 集成
 
 **目标**: 每次 run 的执行路径可在 LangSmith 或 Langfuse 中回放
 
-**当前进度（2026-05-29）**:
+**当前进度（2026-05-30）**:
 - 已完成本地 tracing 基础闭环：
   - `backend/app/tracing.py` 已支持 span / event 记录与 run 级上下文
   - `GraphRunner`、`ToolGateway`、`LLMClient` 已接入关键 span 埋点
   - 新增 `GET /incidents/runs/{run_id}/trace`
   - `RunDetailPage` 已增加 `View Trace` 快捷入口
-- 已增加 tracing 配置骨架：
-  - `tracing_provider`
-  - `tracing_project`
-  - `tracing_base_url`
-  - `tracing_public_base_url`
-- 尚未完成外部 provider 真接入：
-  - LangSmith / Langfuse SDK 依赖与认证配置未落地
-  - 还不能在外部 tracing 控制台直接回放完整 trace
+- 已完成外部 provider 代码接入：
+  - 新增 `backend/app/tracing_providers.py`
+  - 支持 `TRACING_PROVIDER=langfuse`
+  - 支持 `TRACING_PROVIDER=langsmith`
+  - API 返回 `external_trace_id`、`external_root_span_id`、`external_trace_url`
+  - FastAPI shutdown 会 flush provider
+- 尚需真实环境验收：
+  - 配置 LangSmith / Langfuse 真实凭证
+  - 运行一条工单并在外部控制台确认完整 trace 可回放
 
 **步骤**:
 1. 检查 `backend/app/tracing.py` 现有实现

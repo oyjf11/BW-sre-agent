@@ -63,11 +63,42 @@ TOOL_ADAPTER_MODE=mock
 
 真实 adapter 当前进度：
 
-- 已实现：MySQL 诊断工具、MySQL 应用日志 `query_logs`、K8s 只读工具、`query_metrics`（阿里云 CMS/K8s 指标）、`query_deployments`（K8s deployment 列表与状态）、SLB 健康/流量、OSS RCA/evidence 写归档
-- 已实现但仍需真实环境联调：RAG 知识检索与写回、本地 tracing 闭环、各 real adapter 的线上凭证/白名单/region 配置
-- 尚未实现：LangSmith / Langfuse 外部 tracing provider、离线评测框架、`execute_action` real 模式、`query_runbook` gateway real 模式、`query_ticket_by_id` / `query_service_metadata` 真实数据源
+- 已实现：MySQL 诊断工具、MySQL 应用日志 `query_logs`、K8s 只读工具、`query_metrics`（阿里云 CMS/K8s 指标）、`query_deployments`（K8s deployment 列表与状态）、SLB 健康/流量、OSS RCA/evidence 写归档、本地 tracing 闭环、LangSmith / Langfuse 外部 tracing provider 接入
+- 已实现但仍需真实环境联调：RAG 知识检索与写回、各 real adapter 的线上凭证/白名单/region 配置、LangSmith / Langfuse 控制台回放验收
+- 尚未实现：离线评测框架、`execute_action` real 模式、`query_runbook` gateway real 模式、`query_ticket_by_id` / `query_service_metadata` 真实数据源
 
 切换到真实 adapter 前，需要配置对应凭证、白名单和只读权限。
+
+## Tracing Provider
+
+默认使用本地 tracing：
+
+```bash
+TRACING_PROVIDER=local
+```
+
+Langfuse：
+
+```bash
+TRACING_PROVIDER=langfuse
+TRACING_PROJECT=opspilot
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+TRACING_PUBLIC_BASE_URL=https://cloud.langfuse.com
+```
+
+LangSmith：
+
+```bash
+TRACING_PROVIDER=langsmith
+TRACING_PROJECT=opspilot
+LANGSMITH_API_KEY=lsv2_...
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+TRACING_PUBLIC_BASE_URL=https://smith.langchain.com
+```
+
+`GET /incidents/runs/{run_id}/trace` 会返回本地 span 列表，并在外部 provider 已配置且 run 已产生 span 时返回 `external_trace_id`、`external_root_span_id`、`external_trace_url`。
 
 ## 文档
 
