@@ -26,9 +26,9 @@ tenacity==8.2.3
 structlog==24.1.0
 loguru==0.7.2
 
-# Observability (Optional)
-# langsmith==0.1.0
-# langfuse==2.0.0
+# Observability
+langsmith>=0.3.18
+langfuse>=3.0.0
 
 # Utilities
 python-multipart==0.0.6

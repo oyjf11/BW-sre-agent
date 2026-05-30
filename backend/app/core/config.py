@@ -96,6 +96,11 @@ class Settings(BaseSettings):
     tracing_project: str = "opspilot"
     tracing_base_url: str = ""
     tracing_public_base_url: str = ""
+    langsmith_api_key: str = ""
+    langsmith_endpoint: str = ""
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_base_url: str = ""
 
     def validate_for_production(self):
         """Fail-fast validation for production environment."""
@@ -120,6 +125,17 @@ class Settings(BaseSettings):
             ):
                 errors.append(
                     "MINIMAX_API_KEY and MINIMAX_GROUP_ID are required when LLM_PROVIDER=minimax"
+                )
+
+        tracing_provider = self.tracing_provider.lower()
+        if tracing_provider == "langsmith" and self.app_env != AppEnv.DEV:
+            if not self.langsmith_api_key:
+                errors.append("LANGSMITH_API_KEY is required when TRACING_PROVIDER=langsmith")
+        if tracing_provider == "langfuse" and self.app_env != AppEnv.DEV:
+            if not self.langfuse_public_key or not self.langfuse_secret_key:
+                errors.append(
+                    "LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required when "
+                    "TRACING_PROVIDER=langfuse"
                 )
 
         if errors:
