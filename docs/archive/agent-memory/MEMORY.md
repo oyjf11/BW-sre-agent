@@ -1,2 +1,0 @@
-- [OpsPilot Backend Plan](project_opspilot_backend.md) — P1~P8 phased backend implementation for SRE incident agent
-- [P8 Adapter Config](project_p8_adapter_config.md) — P8 真实适配器需向用户索要阿里云配置，开始前必须询问

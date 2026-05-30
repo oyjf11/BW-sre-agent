@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
-> 生成时间: 2026-04-06 | 更新时间: 2026-04-08
-> Phase 1-4 已完成，Phase 5 已完成；当前进入 Phase 6（RAG 知识检索与写回）。
+> 生成时间: 2026-04-06 | 更新时间: 2026-05-30
+> Phase 1-6 已完成；当前处于 Phase 7（可观测性接入）。本地 tracing 闭环已完成，下一步是接入 LangSmith / Langfuse 外部 provider；Phase 8 离线评测尚未启动。
 
 ---
 
@@ -35,14 +35,14 @@
 
 ---
 
-## 当前待执行阶段
+## 阶段进度明细
 
-## Phase 5: 阿里云真实数据源接入（P1，预计 5-7 天）
+## Phase 5: 阿里云真实数据源接入（P1，预计 5-7 天） — ✅ 已完成（2026-05-28）
 
 > **架构说明**：真实适配器分三类，不要混淆：
 > 1. **业务 DB 诊断工具（新增）**：连接线上业务 MySQL（hoo_ai），提供数据库层面的诊断证据（慢查询、连接数、锁等待等）。这些是 evidence_fanout 阶段的**新工具**，与现有 mock 工具并列。→ Task 5.1
 > 2. **应用日志查询（替换 query_logs mock）**：线上 SLS 已关停，改为 Yii 应用日志写入 MySQL `common_app_log` 表，OpsPilot 的 `query_logs` 适配器直接查这张表。→ Task 5.1.5
-> 3. **替换其他 mock 工具**：`query_metrics` → Prometheus/ARMS，`query_deployments` → CI/CD API，K8s/SLB → 阿里云 API。→ Task 5.2~5.4
+> 3. **替换其他 mock 工具**：`query_metrics` → 阿里云 CMS/K8s 指标，`query_deployments` → K8s deployment 列表与状态，K8s/SLB → Kubernetes / 阿里云 API。→ Task 5.2~5.4
 >
 > **前置依赖**：Task 5.1.5 依赖 admin-sys 侧先完成日志写入改造（建表 + Yii DbTarget 配置）。改造方案见 `admin-sys/ACTION_PLAN_LOG_TO_MYSQL.md`。
 >
@@ -235,8 +235,8 @@
    - 只允许写入 `rca/` 和 `evidence/` 前缀（硬编码白名单）
 
 2. 创建 `backend/app/tools/adapters/oss_adapter.py`，实现 2 个工具函数：
-   - `write_rca_report_to_oss(params)` — 将 RCA markdown 写入 OSS
-   - `write_evidence_bundle_to_oss(params)` — 将证据包 JSON 写入 OSS
+   - `write_rca_to_oss(params)` — 将 RCA markdown 写入 OSS
+   - `write_evidence_to_oss(params)` — 将证据包 JSON 写入 OSS
 
 3. 在 rca_node 中调用 OSS 写入
 
@@ -302,7 +302,7 @@
 
 ---
 
-## Phase 7: 可观测性接入（P1，预计 1-2 天）
+## Phase 7: 可观测性接入（P1，预计 1-2 天） — 🚧 进行中
 
 ### Task 7.1: Tracing 集成
 
@@ -623,7 +623,7 @@ Phase 5 执行顺序:
   Task 5.4  (OSS 适配器)         ── ✅ 已完成（2026-05-28）
 
 Phase 6 (Task 6.1)          ── ✅ 已完成（2026-05-28）
-Phase 7 (Task 7.1)          ─┤── 可继续推进
+Phase 7 (Task 7.1)          ─┤── 🚧 进行中（外部 provider 待接入）
                              ─┘
 
 Phase 8 (Task 8.1)         ── 最后，2-3 天
@@ -641,4 +641,4 @@ Phase 10 生产工程能力:
 ```
 
 **跨仓库依赖**: Task 5.1.5 需要 admin-sys 先部署日志写入改造（见 `admin-sys/ACTION_PLAN_LOG_TO_MYSQL.md`）
-**注意**: Task 5.1 是新增 MySQL 诊断工具，Task 5.1.5 是替换 query_logs mock，5.2/5.3 是替换 K8s/SLB mock
+**注意**: Task 5.1 是新增 MySQL 诊断工具，Task 5.1.5 是替换 query_logs mock，5.2/5.3 是替换 K8s/SLB mock；`query_metrics` real 路由当前使用阿里云 CMS/K8s 指标，`query_deployments` real 路由当前使用 K8s deployment 列表与状态，若后续需要独立 CI/CD 发布记录平台可另列 backlog。

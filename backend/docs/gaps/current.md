@@ -1,59 +1,20 @@
 # 当前工程缺口
 
-更新时间：2026-05-11
+更新时间：2026-05-30
 
-本文只记录当前仍需要处理的问题。历史审查和已完成修复已移动到 `backend/docs/archive/2026-03/`。
+本文只记录当前仍需要处理的问题。Phase / Task 完成状态以根目录 `ACTION_PLAN.md` 为唯一事实源；历史审查和已完成修复已移动到 `backend/docs/archive/2026-03/`。
 
-## P1：Phase 5 剩余真实适配器
+## 已关闭的旧缺口
 
-### SLB 适配器
+以下内容已经不再是当前缺口：
 
-状态：未实现。
+- Phase 5 阿里云真实数据源接入：MySQL 诊断、MySQL 应用日志、K8s、SLB、OSS 已完成基础代码接入。
+- Phase 6 RAG 知识检索与写回：`backend/app/rag/` 已实现 indexer / retriever / reranker / writer，并接入 `retrieve_memory_node` 与 RCA 写回链路。
+- 本地 tracing 闭环：`backend/app/tracing.py`、GraphRunner / ToolGateway / LLMClient 埋点、`GET /incidents/runs/{run_id}/trace`、前端 `View Trace` 入口已完成。
 
-目标：
+## P1：Phase 7 外部 Tracing Provider
 
-- `query_lb_health_status` 切到真实阿里云 SLB/ALB 查询
-- `query_lb_traffic_metrics` 切到真实流量、5xx、延迟指标查询
-
-注意：
-
-- mock 版本仍在 `backend/app/tools/adapters/__init__.py`
-- real 路由尚未在 `backend/app/tools/gateway.py` 接入真实实现
-- 需要阿里云访问凭证、region、负载均衡产品类型和只读权限
-
-### OSS 归档适配器
-
-状态：未实现。
-
-目标：
-
-- `write_rca_report_to_oss`
-- `write_evidence_bundle_to_oss`
-
-注意：
-
-- 只能允许写入 `rca/` 和 `evidence/` 前缀
-- `backend/app/services/knowledge_writeback.py` 目前归档逻辑仍是 stub
-
-## P1：Phase 6 RAG 知识检索与写回
-
-状态：未实现正式向量库。
-
-当前已有：
-
-- `backend/app/graph/nodes/retrieve_memory.py` 通过 `query_runbook` 获取基础 memory
-- `backend/app/graph/nodes/writeback_knowledge.py`
-- `backend/app/services/knowledge_writeback.py`
-
-缺口：
-
-- `backend/app/rag/` 目录存在但为空，暂无 indexer/retriever/writer 实现
-- 没有 `chromadb` 或 `pgvector` 依赖
-- RCA 写回目前只记录 writeback 记录，未写入真实向量库
-
-## P1：Phase 7 Tracing
-
-状态：进行中，已完成本地 tracing 闭环，外部 provider 未接入。
+状态：进行中。
 
 当前已有：
 
@@ -61,12 +22,14 @@
 - `GET /incidents/runs/{run_id}/trace`
 - GraphRunner / ToolGateway / LLMClient tracing 埋点
 - RunDetailPage trace 外链入口
+- tracing 配置骨架：`tracing_provider`、`tracing_project`、`tracing_base_url`、`tracing_public_base_url`
 
 缺口：
 
-- LangSmith / Langfuse 依赖仍未启用
-- 外部 tracing provider 还没有真实上报
-- 还缺少外部 trace id / public trace url 的真实回传
+- LangSmith / Langfuse SDK 依赖与认证配置未落地
+- span/event 还未真实上报到外部 tracing 控制台
+- 外部 trace id / public trace url 尚未真实回传
+- 还缺一条真实 run 的外部 trace 回放验收记录
 
 ## P2：Phase 8 离线评测
 
@@ -74,13 +37,43 @@
 
 缺口：
 
-- `backend/app/evals/` 目录存在但为空，暂无 replay runner、dataset 或 metrics 实现
+- `backend/app/evals/` 目录当前无 replay runner、dataset 或 metrics 实现
 - 没有 replay dataset
-- 没有 Top1/Top3、风险等级、步骤数等评测指标
+- 没有 Top1/Top3 根因命中率、风险等级准确率、步骤数/延迟/token 消耗等评测指标
+- 没有 `python -m app.evals.replay_runner ...` CLI
+
+## P1：Phase 9 面试短板补齐
+
+状态：未启动。
+
+缺口：
+
+- RAG hybrid search / keyword index / citation eval 尚未实现
+- Prompt 版本管理与回放对比尚未实现
+- 泛业务场景迁移 Demo 尚未实现
+- 相似故障推荐、风险预测、轻量 NLP 抽取尚未实现
+
+## P1：Phase 10 生产工程能力
+
+状态：未启动。
+
+缺口：
+
+- Redis 缓存与分布式锁尚未实现
+- 后台任务队列与 worker 尚未实现
+- 成本、延迟与质量指标看板尚未实现
+
+## 谨慎项
+
+- 各 real adapter 的代码路径已接入，但真实环境联调仍依赖外部凭证、白名单、region、bucket、K8s namespace 白名单和线上数据可用性。
+- `query_ticket_by_id`、`query_service_metadata` 的真实数据源尚未单独接入；当前重点仍是手工工单 / 告警事件入口与已接入的证据源。
+- `query_runbook` 的 gateway real 模式仍 fail-closed；当前图内历史知识检索通过 `backend/app/rag/` 完成。
+- `execute_action` 的 real 模式仍 fail-closed；真实执行动作需要另行设计审批、幂等、审计和非生产白名单策略。
 
 ## 文档维护规则
 
 - 当前进度只改 `ACTION_PLAN.md`
 - 当前缺口只改本文档
-- 历史问题解决后移动到 `backend/docs/archive/`
+- 设计文档、PRD、历史 plan/spec 不作为完成状态依据
+- 已解决问题移动到 `backend/docs/archive/`
 - 不要在多个文档里重复维护同一份 Phase 状态

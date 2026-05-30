@@ -79,7 +79,7 @@ POST /approvals/{approval_id}/decision
 
 ### 1. Pydantic 对象 vs dict 二义性
 
-**graph state 中的对象可��是 Pydantic 模型，也可能是 dict**（从 checkpoint 反序列化后变成 dict）。访问属性时必须兼容两种形式：
+**graph state 中的对象可能是 Pydantic 模型，也可能是 dict**（从 checkpoint 反序列化后变成 dict）。访问属性时必须兼容两种形式：
 
 ```python
 # 错误写法
@@ -114,7 +114,8 @@ evidence_items 存在于 graph state 内存中，通过 GraphRunner._persist_evi
 ### 4. Tool Adapter 模式
 
 - 默认 TOOL_ADAPTER_MODE=mock，使用 mock 适配器返回仿真数据
-- 真实适配器进度：MySQL 诊断、MySQL 应用日志、K8s 已实现；SLB、OSS 仍待实现
+- 真实适配器进度：已实现 MySQL 诊断、MySQL 应用日志 `query_logs`、K8s 只读、`query_metrics`（阿里云 CMS/K8s 指标）、`query_deployments`（K8s deployment 列表与状态）、SLB 健康/流量、OSS RCA/evidence 写归档
+- `query_ticket_by_id` / `query_service_metadata` 当前仍是 mock-only；`query_runbook` 和 `execute_action` 的 real 模式仍 fail-closed；RAG 检索走 `backend/app/rag/`，执行动作仍需人工审批与受控接入
 - 切换方式：在 backend/.env 设置 TOOL_ADAPTER_MODE=real
 
 ### 5. 前端类型与后端对齐
@@ -134,6 +135,8 @@ evidence_items 存在于 graph state 内存中，通过 GraphRunner._persist_evi
 | `backend/app/services/executor.py` | ControlledExecutor（幂等执行 + 审计） |
 | `backend/app/tools/gateway.py` | Tool Gateway（schema 校验、重试、审计） |
 | `backend/app/tools/adapters/__init__.py` | mock 适配器集合 |
+| `backend/app/rag/` | RAG 索引、检索、rerank、写回 |
+| `backend/app/tracing.py` | 本地 tracing span/event 记录 |
 | `backend/app/core/config.py` | Settings（环境变量配置） |
 | `backend/app/llm_client.py` | LLM 客户端（OpenAI + MiniMax） |
 | `frontend/src/pages/RunDetailPage.tsx` | 运行详情页（Stepper + Tabs） |
@@ -148,7 +151,7 @@ evidence_items 存在于 graph state 内存中，通过 GraphRunner._persist_evi
 # 1. 查看 run 状态（注意 current_node 字段，表示卡在哪）
 curl -s http://127.0.0.1:8000/incidents/runs/{run_id} | python3 -m json.tool
 
-# 2. 查看事件流（找 ERROR 级别��事件）
+# 2. 查看事件流（找 ERROR 级别事件）
 curl -s http://127.0.0.1:8000/incidents/runs/{run_id}/events | \
   python3 -c "import sys,json; [print(f'[{e[\"level\"]}] {e[\"type\"]:20s} {e.get(\"node_name\",\"\"):30s} {e.get(\"message\",\"\")[:120]}') for e in json.load(sys.stdin)]"
 
@@ -160,11 +163,14 @@ curl -s http://127.0.0.1:8000/incidents/runs/{run_id}/diagnosis | python3 -m jso
 
 # 5. 查看修复方案
 curl -s http://127.0.0.1:8000/incidents/runs/{run_id}/remediation | python3 -m json.tool
+
+# 6. 查看本地 trace
+curl -s http://127.0.0.1:8000/incidents/runs/{run_id}/trace | python3 -m json.tool
 ```
 
 ## 当前进度
 
-详见 ACTION_PLAN.md。Phase 1-4 已完成，当前处于 Phase 5（阿里云真实数据源接入）；Task 5.1、5.1.5、5.2 已完成，下一步是 5.3 SLB 与 5.4 OSS。
+详见 ACTION_PLAN.md（唯一项目进度源）。Phase 1-6 已完成；当前处于 Phase 7（可观测性接入），已完成本地 tracing 闭环，下一步是 LangSmith / Langfuse 外部 provider 真接入。Phase 8 离线评测尚未启动，Phase 9/10 为后续增强。
 
 ## 编码规范
 

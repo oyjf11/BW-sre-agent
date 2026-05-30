@@ -1,6 +1,8 @@
 # 阿里云平台对接设计
 
-更新时间：2026-03-08
+更新时间：2026-05-30
+
+进度说明：本文是阿里云平台接入的设计与联调参考，不是项目进度源。Phase / Task 完成状态以根目录 `ACTION_PLAN.md` 为准。
 
 ## 1. 目标
 
@@ -27,16 +29,20 @@
 - MySQL 诊断 client/adapter：`backend/app/tools/clients/mysql_client.py`、`backend/app/tools/adapters/mysql_adapter.py`
 - MySQL 应用日志 `query_logs` real 路由：读取业务库 `common_app_log`
 - K8s 只读 client/adapter：`backend/app/tools/clients/k8s_client.py`、`backend/app/tools/adapters/k8s_adapter.py`
+- `query_metrics` real 路由：通过 `backend/app/tools/clients/cms_client.py` 与 `backend/app/tools/adapters/metrics_adapter.py` 查询阿里云 CMS/K8s 指标
+- `query_deployments` real 路由：通过 K8s deployment 列表与状态提供发布/部署侧证据
+- SLB client/adapter：`backend/app/tools/clients/slb_client.py`、`backend/app/tools/adapters/slb_adapter.py`
+- OSS client/adapter：`backend/app/tools/clients/oss_client.py`、`backend/app/tools/adapters/oss_adapter.py`
 
 当前工程仍缺少：
 
-- SLB / ALB 真实 `client` 与 `adapter`
-- OSS 归档 `client` 与 `adapter`
-- 阿里云凭证与只读配置模型
+- 真实环境凭证、白名单、region、bucket、namespace 等配置的联调验收记录
 - service metadata normalization
-- `ticket_id` 真实自动查询、真实部署记录查询与 OSS 归档落地
+- `ticket_id` 真实自动查询、service metadata 真实查询
+- 独立 CI/CD 发布记录平台接入（当前 `query_deployments` 使用 K8s deployment 状态）
+- 真实受控执行动作接入
 
-当前 `TOOL_ADAPTER_MODE=real` 已接入 MySQL 与 K8s 的真实路由；尚未实现的真实适配器仍应保持 fail-closed，不能返回伪造成功结果。
+当前 `TOOL_ADAPTER_MODE=real` 已接入 MySQL、应用日志、K8s、指标、SLB、OSS 的真实路由；`query_runbook` 与 `execute_action` real 模式仍保持 fail-closed，不能返回伪造成功结果。
 
 ---
 
@@ -88,8 +94,8 @@
 
 用途：
 
-- `write_rca_report_to_oss`
-- `write_evidence_bundle_to_oss`
+- `write_rca_to_oss`
+- `write_evidence_to_oss`
 - `read_oss_log_object`（可选）
 
 说明：
@@ -112,7 +118,7 @@
 
 ## 5. 代码落点
 
-建议在当前工程内新增以下文件：
+当前工程内已落地以下文件，后续维护仍按 client / adapter / gateway 分层：
 
 ```text
 backend/app/tools/clients/mysql_client.py
@@ -136,7 +142,7 @@ backend/app/tools/adapters/oss_adapter.py
 
 ## 6. 配置设计
 
-建议在 `app/core/config.py` 中增加以下配置项：
+`app/core/config.py` 中应维护以下配置项：
 
 ```env
 TOOL_ADAPTER_MODE=mock
@@ -149,15 +155,16 @@ K8S_CONFIG_PATH=
 K8S_CONTEXT=
 K8S_ALLOWED_NAMESPACES=["default"]
 
-ALIYUN_ACCESS_KEY_ID=
-ALIYUN_ACCESS_KEY_SECRET=
-ALIYUN_REGION_ID=
+ALIBABA_ACCESS_KEY_ID=
+ALIBABA_ACCESS_KEY_SECRET=
+ALIBABA_REGION_ID=
+K8S_CLUSTER_ID=
 
-SLB_API_ENDPOINT=
-OSS_BUCKET=
-OSS_RCA_PREFIX=rca/
-OSS_EVIDENCE_PREFIX=evidence/
+ALIBABA_OSS_BUCKET=
+ALIBABA_OSS_ENDPOINT=
 ```
+
+OSS 写入前缀当前在客户端中硬编码白名单为 `rca/` 与 `evidence/`，不要通过环境变量放宽。
 
 同时建议增加这些结构化配置：
 
@@ -183,7 +190,7 @@ OSS_EVIDENCE_PREFIX=evidence/
 - `query_k8s_pods`
 - `query_k8s_events`
 - `query_lb_health_status`
-- `write_rca_report_to_oss`
+- `write_rca_to_oss`
 
 Agent 通用工具示例：
 
@@ -264,8 +271,8 @@ Graph 中的使用方式：
 
 增加可选归档：
 
-- `write_rca_report_to_oss`
-- `write_evidence_bundle_to_oss`
+- `write_rca_to_oss`
+- `write_evidence_to_oss`
 
 OSS 失败不应阻塞 RCA 主流程。
 
@@ -274,6 +281,8 @@ OSS 失败不应阻塞 RCA 主流程。
 ## 10. 分阶段实施计划
 
 ## Phase A：MySQL 只读接入
+
+状态：部分完成。MySQL 诊断工具与应用日志 `query_logs` 已完成；`ticket_id`、service metadata、独立 deploy records 的真实查询仍可作为后续扩展。
 
 目标：
 
@@ -293,6 +302,8 @@ OSS 失败不应阻塞 RCA 主流程。
 - service 能映射到 namespace / deployment / lb_id
 
 ## Phase B：K8s 只读接入
+
+状态：已完成基础接入。
 
 目标：
 
@@ -314,6 +325,8 @@ OSS 失败不应阻塞 RCA 主流程。
 
 ## Phase C：SLB 只读接入
 
+状态：已完成基础接入，真实联调依赖阿里云 AK/SK 与 region 配置。
+
 目标：
 
 - 获取入口层证据
@@ -331,6 +344,8 @@ OSS 失败不应阻塞 RCA 主流程。
 
 ## Phase D：OSS 归档接入
 
+状态：已完成基础接入，真实联调依赖 OSS bucket / endpoint / AK/SK 配置。
+
 目标：
 
 - RCA 和证据包可归档
@@ -339,8 +354,8 @@ OSS 失败不应阻塞 RCA 主流程。
 
 - `oss_client.py`
 - `oss_adapter.py`
-- `write_rca_report_to_oss`
-- `write_evidence_bundle_to_oss`
+- `write_rca_to_oss`
+- `write_evidence_to_oss`
 
 验收：
 
@@ -398,29 +413,28 @@ OSS 失败不应阻塞 RCA 主流程。
 
 ---
 
-## 13. 建议的第一步
+## 13. 后续建议
 
-如果现在开始实施，建议不要同时接四个数据源。
+MySQL、K8s、SLB、OSS 的基础接入已经完成，后续不应再按“从零实现四个数据源”的旧顺序推进。
 
-最合理的顺序是：
+更合理的顺序是：
 
-1. 先做 `MySQL`
-2. 再做 `K8s`
-3. 然后做 `SLB`
-4. 最后做 `OSS`
+1. 补真实环境联调记录：MySQL / K8s / CMS / SLB / OSS 各跑一条受控查询或写入。
+2. 补 service metadata normalization，让服务名、namespace、deployment、lb_id、owner 等映射统一。
+3. 视需要补 `ticket_id` 真实自动查询与独立 CI/CD 发布记录平台。
+4. 继续推进 Phase 7 外部 tracing provider 与 Phase 8 离线评测。
 
-原因：
+注意：
 
-- `MySQL` 能先解决 `ticket_id` 自动查询和 metadata normalization
-- `K8s` 是排障价值最高的数据源
-- `SLB` 是加分项，不是第一阻塞项
-- `OSS` 归档不会影响主链路是否能跑通
+- `query_deployments` 当前来自 K8s deployment 状态，不等价于完整 CI/CD 发布记录。
+- OSS 归档仍是 best-effort，失败不能阻塞 RCA 主流程。
+- 所有真实执行动作仍应保持 fail-closed，直到审批、幂等、审计与非生产白名单策略补齐。
 
 ---
 
 ## 14. 对当前工程的直接结论
 
-当前工程已经可以开始做阿里云接入，但前提是按“真实 adapter + fail closed + 分阶段上线”的方式推进。
+当前工程已经完成多源阿里云接入的基础代码闭环，后续重点是按“真实 adapter + fail closed + 分阶段联调”的方式补齐线上验证、服务元数据映射和评测闭环。
 
 不建议继续在 `gateway.py` 中追加伪真实函数，也不建议直接把阿里云 SDK 调用写进 Graph 节点。正确做法是：
 
@@ -428,4 +442,4 @@ OSS 失败不应阻塞 RCA 主流程。
 - Gateway 只关心路由和审计
 - Client/Adapter 负责具体平台对接
 
-这样后续无论接 MySQL、K8s、SLB 还是 OSS，都不会把主流程再次耦死。
+这样后续无论继续扩展 MySQL、K8s、SLB、OSS、CMS 指标还是 CI/CD 发布记录，都不会把主流程再次耦死。
