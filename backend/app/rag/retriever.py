@@ -1,8 +1,10 @@
 """Semantic retrieval service backed by LlamaIndex + ChromaDB."""
 
+from __future__ import annotations
+
 import uuid
-from datetime import UTC, datetime
-from typing import Any, Dict, Iterable, List
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterable, List, Optional
 
 from llama_index.core.vector_stores import FilterOperator, MetadataFilter, MetadataFilters
 
@@ -18,7 +20,7 @@ def build_query(service: str, incident_type: str, symptom: str) -> str:
     return " ".join(part for part in parts if part).strip()
 
 
-def _build_filters(filters: Dict[str, Any]) -> MetadataFilters | None:
+def _build_filters(filters: Dict[str, Any]) -> Optional[MetadataFilters]:
     metadata_filters = [
         MetadataFilter(key=key, value=_normalize_filter_value(value), operator=FilterOperator.EQ)
         for key, value in filters.items()
@@ -56,7 +58,7 @@ def _chunk_to_evidence(chunk: RetrievedChunk) -> EvidenceItem:
         tool_name="rag_retriever",
         category="history",
         source_ref=chunk.chunk_id,
-        source_timestamp=datetime.now(UTC),
+        source_timestamp=datetime.now(timezone.utc),
         summary=chunk.content[:240],
         raw_payload={
             "doc_id": chunk.doc_id,
@@ -76,7 +78,7 @@ def chunks_to_evidence(chunks: Iterable[RetrievedChunk]) -> List[EvidenceItem]:
     return [_chunk_to_evidence(chunk) for chunk in chunks]
 
 
-def retrieve(query: str, filters: Dict[str, Any], top_k: int | None = None) -> List[RetrievedChunk]:
+def retrieve(query: str, filters: Dict[str, Any], top_k: Optional[int] = None) -> List[RetrievedChunk]:
     rag_settings = RagSettings()
     retriever = build_index().as_retriever(
         similarity_top_k=top_k or rag_settings.top_k,

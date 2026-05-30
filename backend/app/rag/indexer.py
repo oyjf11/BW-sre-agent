@@ -1,7 +1,7 @@
 """Index local runbooks and confirmed RCA reports into ChromaDB."""
 
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 from llama_index.core import Document, SimpleDirectoryReader
 from llama_index.core.node_parser import SentenceSplitter
@@ -77,7 +77,7 @@ def index_documents(documents: Iterable[KnowledgeDocument]) -> IndexingResult:
     )
 
 
-def index_runbook_documents(runbook_dir: str | None = None) -> IndexingResult:
+def index_runbook_documents(runbook_dir: Optional[str] = None) -> IndexingResult:
     rag_settings = RagSettings()
     directory = Path(runbook_dir or rag_settings.runbook_dir)
     return index_documents(load_runbook_documents(directory))
