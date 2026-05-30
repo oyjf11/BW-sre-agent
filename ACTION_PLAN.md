@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
-> 生成时间: 2026-04-06 | 更新时间: 2026-05-30
-> Phase 1-7 已完成代码接入；LangSmith / Langfuse 外部 provider 已落地，仍需真实控制台回放验收；Phase 8 离线评测尚未启动。
+> 生成时间: 2026-04-06 | 更新时间: 2026-05-30 (夜间)
+> Phase 1-7 已全部完成；LangSmith / Langfuse 外部 provider 已落地，仍需真实控制台回放验收；Phase 8 离线评测尚未启动。
 
 ---
 
@@ -308,33 +308,24 @@
 
 **目标**: 每次 run 的执行路径可在 LangSmith 或 Langfuse 中回放
 
-**当前进度（2026-05-30）**:
+**当前进度（2026-05-30 夜间）**:
 - 已完成本地 tracing 基础闭环：
   - `backend/app/tracing.py` 已支持 span / event 记录与 run 级上下文
   - `GraphRunner`、`ToolGateway`、`LLMClient` 已接入关键 span 埋点
   - 新增 `GET /incidents/runs/{run_id}/trace`
   - `RunDetailPage` 已增加 `View Trace` 快捷入口
 - 已完成外部 provider 代码接入：
-  - 新增 `backend/app/tracing_providers.py`
-  - 支持 `TRACING_PROVIDER=langfuse`
-  - 支持 `TRACING_PROVIDER=langsmith`
+  - 新增 `backend/app/tracing_providers.py`（含 `LangfuseTraceProvider`、`LangSmithTraceProvider`、工厂函数）
+  - 新增 `backend/app/tests/test_tracing_providers.py`（9 个测试全部通过）
+  - `backend/app/core/config.py` 增加 langsmith/langfuse 配置字段 + production 校验
+  - `backend/requirements.txt` 已安装 langsmith/langfuse SDK
   - API 返回 `external_trace_id`、`external_root_span_id`、`external_trace_url`
   - FastAPI shutdown 会 flush provider
+  - 前端 View Trace 链结优先使用 `external_trace_url`
 - 尚需真实环境验收：
   - 配置 LangSmith / Langfuse 真实凭证
   - 运行一条工单并在外部控制台确认完整 trace 可回放
-
-**步骤**:
-1. 检查 `backend/app/tracing.py` 现有实现
-2. 选择 LangSmith 或 Langfuse：
-   - LangSmith: 设置 `LANGCHAIN_TRACING_V2=true` + `LANGCHAIN_API_KEY`
-   - Langfuse: `pip install langfuse` + 配置 `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY`
-3. 确保 graph_runner 和 tool gateway 的调用都被 trace 捕获
-4. 在 RunDetailPage 右侧边栏添加 "View Trace" 外链（如果配置了 tracing）
-
-**验收**:
-- 运行一条工单后，在 LangSmith/Langfuse 控制台能看到完整 trace
-- 包含每个节点的 input/output、LLM 调用、tool 调用
+  - 详见 `docs/superpowers/plans/2026-05-30-external-tracing-provider.md`
 
 ---
 
@@ -624,8 +615,7 @@ Phase 5 执行顺序:
   Task 5.4  (OSS 适配器)         ── ✅ 已完成（2026-05-28）
 
 Phase 6 (Task 6.1)          ── ✅ 已完成（2026-05-28）
-Phase 7 (Task 7.1)          ─┤── 🚧 进行中（外部 provider 待接入）
-                             ─┘
+Phase 7 (Task 7.1)          ── ✅ 已完成，待真实控制台验收（2026-05-30）
 
 Phase 8 (Task 8.1)         ── 最后，2-3 天
 
