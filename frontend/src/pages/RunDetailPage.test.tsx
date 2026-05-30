@@ -202,4 +202,35 @@ describe('RunDetailPage', () => {
       '/incidents/runs/run-123/trace',
     );
   });
+
+  it('uses external trace URL for the View Trace action when present', async () => {
+    vi.mocked(runsModule.runs.getRun).mockResolvedValue(mockRun as any);
+    vi.mocked(runsModule.runs.getRunEvents).mockResolvedValue(mockEvents);
+    vi.mocked(runsModule.runs.getRunTrace).mockResolvedValue({
+      run_id: 'run-123',
+      provider: 'langfuse',
+      trace_url: '/incidents/runs/run-123/trace',
+      external_trace_id: 'trace-run-123',
+      external_root_span_id: 'span-root',
+      external_trace_url: 'https://langfuse.example/project/opspilot/traces/trace-run-123',
+      spans: [],
+    } as any);
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/runs/run-123']}>
+        <Routes>
+          <Route path="/runs/:id" element={<RunDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('api-gateway')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('link', { name: 'View Trace' })).toHaveAttribute(
+      'href',
+      'https://langfuse.example/project/opspilot/traces/trace-run-123',
+    );
+  });
 });

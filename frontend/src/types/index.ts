@@ -65,6 +65,9 @@ export interface RunTrace {
   run_id: string;
   provider: string;
   trace_url: string;
+  external_trace_id?: string;
+  external_root_span_id?: string;
+  external_trace_url?: string;
   spans: TraceSpan[];
 }
 

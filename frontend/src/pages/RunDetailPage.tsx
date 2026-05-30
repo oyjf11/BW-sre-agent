@@ -52,6 +52,8 @@ export function RunDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const seenEventIds = useRef<Set<string>>(new Set());
 
+  const traceHref = runTrace?.external_trace_url || runTrace?.trace_url;
+
   useEffect(() => {
     if (!id) return;
 
@@ -254,9 +256,9 @@ export function RunDetailPage() {
                 </svg>
                 {t('run.viewRca')}
               </Link>
-              {runTrace?.trace_url && (
+              {traceHref && (
                 <a
-                  href={runTrace.trace_url}
+                  href={traceHref}
                   target="_blank"
                   rel="noreferrer"
                   className="btn btn-secondary w-full justify-start cursor-pointer"
