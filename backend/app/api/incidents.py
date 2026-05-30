@@ -22,6 +22,7 @@ from app.graph.state import IncidentAgentState
 from app.core.config import get_settings
 from app.services.runtime import RuntimeService
 from app.tracing import tracer
+from app.tracing_providers import LocalTraceProvider
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,9 @@ class RunTraceResponse(BaseModel):
     run_id: str
     provider: str
     trace_url: str
+    external_trace_id: Optional[str] = None
+    external_root_span_id: Optional[str] = None
+    external_trace_url: Optional[str] = None
     spans: List[TraceSpanResponse]
 
 
@@ -168,7 +172,10 @@ def _load_latest_checkpoint_state(run_id: str, db) -> Dict[str, Any]:
     return state
 
 
-def _build_trace_url(run_id: str) -> str:
+def _build_trace_url(run_id: str, external_trace_url: Optional[str] = None) -> str:
+    if external_trace_url:
+        return external_trace_url
+
     settings = get_settings()
     base_url = settings.tracing_public_base_url or settings.tracing_base_url
     provider = settings.tracing_provider.lower()
@@ -270,10 +277,16 @@ async def get_run_trace(run_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail="Run not found")
 
     settings = get_settings()
+    metadata = tracer.get_trace_metadata(run_id)
+    provider = metadata.get("provider") or settings.tracing_provider
+    external_trace_url = metadata.get("external_trace_url")
     return RunTraceResponse(
         run_id=run_id,
-        provider=settings.tracing_provider,
-        trace_url=_build_trace_url(run_id),
+        provider=provider,
+        trace_url=_build_trace_url(run_id, external_trace_url),
+        external_trace_id=metadata.get("external_trace_id"),
+        external_root_span_id=metadata.get("external_root_span_id"),
+        external_trace_url=external_trace_url,
         spans=tracer.get_spans(run_id),
     )
 

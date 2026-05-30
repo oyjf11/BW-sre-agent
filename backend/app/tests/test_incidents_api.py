@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.incidents import router, get_db
 from app.models.db_models import Base, IncidentCheckpoint, IncidentRun, RunStatusEnum
 from app.tracing import tracer
+from app.tracing_providers import LocalTraceProvider, ProviderSpanResult
 
 
 def create_test_client():
@@ -142,3 +143,48 @@ def test_get_run_trace_returns_spans_and_local_url():
     assert payload["provider"] == "local"
     assert payload["trace_url"].endswith("/incidents/runs/run-123/trace")
     assert payload["spans"][0]["name"] == "graph.run"
+    tracer.configure_provider(LocalTraceProvider())
+
+
+class ApiTraceProvider:
+    name = "recording"
+
+    def start_span(self, span):
+        return ProviderSpanResult(
+            external_trace_id="external-trace-run-123",
+            external_span_id="external-root-span",
+            external_trace_url="https://trace.example/run-123",
+        )
+
+    def add_event(self, span_id, event_name, data):
+        return None
+
+    def end_span(self, span):
+        return None
+
+    def get_trace_url(self, run_id):
+        return f"https://trace.example/{run_id}"
+
+    def flush(self):
+        return None
+
+
+def test_get_run_trace_returns_external_trace_metadata():
+    app, session_factory = create_test_client()
+    seed_run_with_checkpoint(session_factory)
+    tracer.clear()
+    tracer.configure_provider(ApiTraceProvider())
+    span_id = tracer.start_span("graph.run", run_id="run-123")
+    tracer.end_span(span_id)
+
+    with TestClient(app) as client:
+        response = client.get("/incidents/runs/run-123/trace")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["provider"] == "recording"
+    assert payload["trace_url"] == "https://trace.example/run-123"
+    assert payload["external_trace_id"] == "external-trace-run-123"
+    assert payload["external_root_span_id"] == "external-root-span"
+    assert payload["external_trace_url"] == "https://trace.example/run-123"
+    tracer.configure_provider(LocalTraceProvider())

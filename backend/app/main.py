@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 from app.api import incidents_router, approvals_router, settings_router
+from app.tracing import tracer
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,10 @@ def _bootstrap_legacy_alembic_state(cfg, command, engine) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _run_alembic_upgrade()
-    yield
+    try:
+        yield
+    finally:
+        tracer.flush()
 
 
 app = FastAPI(
