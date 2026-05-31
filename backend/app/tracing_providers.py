@@ -266,7 +266,11 @@ class LangSmithTraceProvider:
             "client": self.client,
         }
         if parent_run and hasattr(parent_run, "create_child"):
-            run_tree = parent_run.create_child(**run_kwargs)
+            child_kwargs = {
+                k: v for k, v in run_kwargs.items()
+                if k not in ("project_name", "client")
+            }
+            run_tree = parent_run.create_child(**child_kwargs)
         else:
             run_tree = RunTree(**run_kwargs)
         run_tree.post()
