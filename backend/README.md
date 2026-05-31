@@ -63,8 +63,8 @@ TOOL_ADAPTER_MODE=mock
 
 真实 adapter 当前进度：
 
-- 已实现：MySQL 诊断工具、MySQL 应用日志 `query_logs`、K8s 只读工具、`query_metrics`（阿里云 CMS/K8s 指标）、`query_deployments`（K8s deployment 列表与状态）、SLB 健康/流量、OSS RCA/evidence 写归档、本地 tracing 闭环、LangSmith / Langfuse 外部 tracing provider 接入
-- 已实现但仍需真实环境联调：RAG 知识检索与写回、各 real adapter 的线上凭证/白名单/region 配置、LangSmith / Langfuse 控制台回放验收
+- 已实现：MySQL 诊断工具、MySQL 应用日志 `query_logs`、K8s 只读工具、`query_metrics`（阿里云 CMS/K8s 指标）、`query_deployments`（K8s deployment 列表与状态）、SLB 健康/流量、OSS RCA/evidence 写归档、本地 tracing 闭环、LangSmith / Langfuse 外部 tracing provider 接入（LangSmith 真实验证通过）
+- 已实现但仍需真实环境联调：RAG 知识检索与写回、各 real adapter 的线上凭证/白名单/region 配置、Langfuse 控制台验证
 - 尚未实现：离线评测框架、`execute_action` real 模式、`query_runbook` gateway real 模式、`query_ticket_by_id` / `query_service_metadata` 真实数据源
 
 切换到真实 adapter 前，需要配置对应凭证、白名单和只读权限。

@@ -1,6 +1,6 @@
 # 当前工程缺口
 
-更新时间：2026-05-30 (夜间)
+更新时间：2026-05-31
 
 本文只记录当前仍需要处理的问题。Phase / Task 完成状态以根目录 `ACTION_PLAN.md` 为唯一事实源；历史审查和已完成修复已移动到 `backend/docs/archive/2026-03/`。
 
@@ -14,7 +14,7 @@
 
 ## P1：Phase 7 外部 Tracing Provider
 
-状态：已完成代码接入，待真实控制台验收。
+状态：✅ 已完成。LangSmith 真实控制台验证通过，Langfuse 代码已就绪待验。
 
 当前已有：
 
@@ -25,12 +25,11 @@
 - RunDetailPage trace 外链入口
 - LangSmith / Langfuse provider 配置和 best-effort 上报
 - API 返回 `external_trace_id`、`external_root_span_id`、`external_trace_url`
+- LangSmith 真实验证：span 上报成功，trace URL 包含正确 org/project ID
 
-剩余验收：
+剩余验收（低优先级）：
 
-- 使用真实 LangSmith 或 Langfuse 凭证运行一条工单
-- 在外部 tracing 控制台打开该 run 的 trace 页面
-- 确认 trace 包含 graph、node、tool、llm span
+- Langfuse 真实环境验证（代码已就绪，配置即用）
 
 ## P2：Phase 8 离线评测
 

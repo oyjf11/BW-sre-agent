@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
-> 生成时间: 2026-04-06 | 更新时间: 2026-05-30 (夜间)
-> Phase 1-7 已全部完成；LangSmith / Langfuse 外部 provider 已落地，仍需真实控制台回放验收；Phase 8 离线评测尚未启动。
+> 生成时间: 2026-04-06 | 更新时间: 2026-05-31
+> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；LLM 已切换至 DeepSeek（deepseek-v4-pro）；Phase 8 离线评测尚未启动。
 
 ---
 
@@ -302,19 +302,19 @@
 
 ---
 
-## Phase 7: 可观测性接入（P1，预计 1-2 天） — ✅ 已完成代码接入，待真实控制台验收
+## Phase 7: 可观测性接入（P1，预计 1-2 天） — ✅ 已完成，LangSmith 真实验证通过
 
 ### Task 7.1: Tracing 集成
 
 **目标**: 每次 run 的执行路径可在 LangSmith 或 Langfuse 中回放
 
-**当前进度（2026-05-30 夜间）**:
+**当前进度（2026-05-31）**:
 - 已完成本地 tracing 基础闭环：
   - `backend/app/tracing.py` 已支持 span / event 记录与 run 级上下文
   - `GraphRunner`、`ToolGateway`、`LLMClient` 已接入关键 span 埋点
   - 新增 `GET /incidents/runs/{run_id}/trace`
   - `RunDetailPage` 已增加 `View Trace` 快捷入口
-- 已完成外部 provider 代码接入：
+- 已完成外部 provider 代码接入 + 真实验证：
   - 新增 `backend/app/tracing_providers.py`（含 `LangfuseTraceProvider`、`LangSmithTraceProvider`、工厂函数）
   - 新增 `backend/app/tests/test_tracing_providers.py`（9 个测试全部通过）
   - `backend/app/core/config.py` 增加 langsmith/langfuse 配置字段 + production 校验
@@ -322,9 +322,11 @@
   - API 返回 `external_trace_id`、`external_root_span_id`、`external_trace_url`
   - FastAPI shutdown 会 flush provider
   - 前端 View Trace 链结优先使用 `external_trace_url`
-- 尚需真实环境验收：
-  - 配置 LangSmith / Langfuse 真实凭证
-  - 运行一条工单并在外部控制台确认完整 trace 可回放
+  - **LangSmith 真实控制台验证通过**：创建工单后 trace 上报成功，trace URL 包含正确 org/project ID，可在控制台查看 graph.run、node.*、tool.*、llm.* span
+  - URL 格式：`https://smith.langchain.com/o/{org_id}/projects/p/{project_id}/r/{run_id}`
+  - LLM 已切换至 DeepSeek（`LLM_PROVIDER=deepseek`，模型 `deepseek-v4-pro`）
+- 后续待做：
+  - Langfuse 真实环境验证（代码已就绪，配置即用）
   - 详见 `docs/superpowers/plans/2026-05-30-external-tracing-provider.md`
 
 ---
@@ -615,7 +617,7 @@ Phase 5 执行顺序:
   Task 5.4  (OSS 适配器)         ── ✅ 已完成（2026-05-28）
 
 Phase 6 (Task 6.1)          ── ✅ 已完成（2026-05-28）
-Phase 7 (Task 7.1)          ── ✅ 已完成，待真实控制台验收（2026-05-30）
+Phase 7 (Task 7.1)          ── ✅ 已完成，LangSmith 真实验证通过（2026-05-31）
 
 Phase 8 (Task 8.1)         ── 最后，2-3 天
 
