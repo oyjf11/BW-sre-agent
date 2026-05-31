@@ -31,15 +31,15 @@ class TestToolGateway:
         monkeypatch.setattr(gateway_module, "ADAPTER_MODE", "real")
         gateway = ToolGateway()
         request = ToolRequest(
-            tool_name="query_logs",
+            tool_name="query_runbook",
             params={"service": "api", "env": "prod"},
             run_id="run-002",
         )
 
         response = await gateway.call_tool(request)
 
-        assert response.result["_adapter_info"] == "real"
-        assert "error" in response.result
+        assert response.success is False
+        assert "Real adapter" in response.error
 
     @pytest.mark.asyncio
     async def test_invalid_params_fail_before_handler_execution(self, monkeypatch):

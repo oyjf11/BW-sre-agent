@@ -17,7 +17,7 @@ cd backend && source venv/bin/activate && uvicorn app.main:app --reload --port 8
 cd frontend && npm run dev
 
 # 后端测试
-cd backend && pytest app/tests/ -x -q
+cd backend && source venv/bin/activate && python -m pytest app/tests/ -x -q
 
 # 前端测试
 cd frontend && npx vitest run
@@ -108,6 +108,7 @@ evidence_items 存在于 graph state 内存中，通过 GraphRunner._persist_evi
 
 - 默认 LLM_PROVIDER=minimax，需要 MINIMAX_API_KEY + MINIMAX_GROUP_ID
 - 可切换为 openai，需要 OPENAI_API_KEY
+- 可切换为 deepseek，需要 DEEPSEEK_API_KEY；模型通过 DEEPSEEK_MODEL 配置
 - dev 环境不强制校验 key，但 LLM 调用会失败
 - LLM 调用失败时节点应有 fallback 逻辑，不能让整个 graph 崩溃
 
@@ -115,8 +116,8 @@ evidence_items 存在于 graph state 内存中，通过 GraphRunner._persist_evi
 
 - 默认 TOOL_ADAPTER_MODE=mock，使用 mock 适配器返回仿真数据
 - 真实适配器进度：已实现 MySQL 诊断、MySQL 应用日志 `query_logs`、K8s 只读、`query_metrics`（阿里云 CMS/K8s 指标）、`query_deployments`（K8s deployment 列表与状态）、SLB 健康/流量、OSS RCA/evidence 写归档
-- `query_ticket_by_id` / `query_service_metadata` 当前仍是 mock-only；`query_runbook` 和 `execute_action` 的 real 模式仍 fail-closed；RAG 检索走 `backend/app/rag/`，执行动作仍需人工审批与受控接入
-- 切换方式：在 backend/.env 设置 TOOL_ADAPTER_MODE=real
+- `query_ticket_by_id` / `query_service_metadata` / `query_runbook` / `execute_action` 在 real 模式下均 fail-closed（抛出 RuntimeError），需实现真实 adapter 后才能使用；RAG 检索走 `backend/app/rag/`，执行动作仍需人工审批与受控接入
+- 切换方式：在 backend/.env 设置 TOOL_ADAPTER_MODE=real（gateway.py 从 Settings 对象读取，而非 os.getenv，避免配置漂移）
 
 ### 5. 前端类型与后端对齐
 
@@ -138,7 +139,7 @@ evidence_items 存在于 graph state 内存中，通过 GraphRunner._persist_evi
 | `backend/app/rag/` | RAG 索引、检索、rerank、写回 |
 | `backend/app/tracing.py` | 本地 tracing span/event 记录 |
 | `backend/app/core/config.py` | Settings（环境变量配置） |
-| `backend/app/llm_client.py` | LLM 客户端（OpenAI + MiniMax） |
+| `backend/app/llm_client.py` | LLM 客户端（OpenAI + MiniMax + DeepSeek） |
 | `frontend/src/pages/RunDetailPage.tsx` | 运行详情页（Stepper + Tabs） |
 | `frontend/src/types/index.ts` | 前端类型定义 |
 | `frontend/src/services/runs.ts` | Runs API 封装 |
@@ -170,7 +171,7 @@ curl -s http://127.0.0.1:8000/incidents/runs/{run_id}/trace | python3 -m json.to
 
 ## 当前进度
 
-详见 ACTION_PLAN.md（唯一项目进度源）。Phase 1-6 已完成；当前处于 Phase 7（可观测性接入），已完成本地 tracing 闭环，下一步是 LangSmith / Langfuse 外部 provider 真接入。Phase 8 离线评测尚未启动，Phase 9/10 为后续增强。
+详见 ACTION_PLAN.md（唯一项目进度源）。Phase 1-7 已完成；LangSmith 真实控制台验证已通过，Langfuse 代码已就绪待真实环境验收。下一步是 Phase 8 离线评测，Phase 9/10 为后续增强。
 
 ## 编码规范
 

@@ -121,11 +121,38 @@ class KnowledgeWritebackService:
             return None
 
     def _do_archive(self, run_id: str, rca: IncidentRcaReport) -> str:
-        """Archive to OSS. Currently a stub returning a synthetic path."""
-        archive_path = f"rca/{run_id}/report.md"
-        logger.info(f"Archiving RCA for run {run_id} to {archive_path}")
-        # In production: gateway.call_tool("write_rca_report_to_oss", {...})
-        return archive_path
+        """Archive RCA report to OSS via gateway."""
+        import asyncio
+        from app.tools import ToolRequest, gateway
+
+        content = rca.report_markdown or f"RCA for {run_id}"
+
+        req = ToolRequest(
+            tool_name="write_rca_to_oss",
+            params={
+                "run_id": run_id,
+                "content": content,
+                "content_type": "markdown",
+            },
+            run_id=run_id,
+        )
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            result = asyncio.run(gateway.call_tool(req))
+        else:
+            result = loop.run_until_complete(gateway.call_tool(req))
+
+        if result.success and result.result:
+            oss_key = result.result.get("oss_key", f"rca/{run_id}/report.md")
+            logger.info(f"Archived RCA for run {run_id} to OSS: {oss_key}")
+            return oss_key
+
+        logger.warning(
+            f"OS archive failed for run {run_id}: success={result.success}, error={result.error}"
+        )
+        return None
 
     def _do_writeback(self, record: IncidentKnowledgeWriteback, content: Dict[str, Any], metadata: Dict[str, Any]):
         """Write confirmed RCA into the RAG knowledge store."""

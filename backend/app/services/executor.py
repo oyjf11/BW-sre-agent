@@ -262,6 +262,8 @@ class ControlledExecutor:
                     )
                     result = await self.gateway.call_tool(req)
                     if not result.success:
+                        failed.append(f"service_exists: check failed for {service}")
+                    elif result.result and not result.result.get("exists"):
                         failed.append(f"service_exists: {service} not found")
                 except Exception:
                     failed.append(f"service_exists: check failed for {service}")

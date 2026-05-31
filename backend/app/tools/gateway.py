@@ -2,7 +2,6 @@ from typing import Dict, Any, List
 from datetime import datetime
 import time
 import logging
-import os
 import inspect
 from numbers import Integral
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -56,7 +55,9 @@ from app.tools.adapters.metrics_adapter import (
 
 logger = logging.getLogger(__name__)
 
-ADAPTER_MODE = os.getenv("TOOL_ADAPTER_MODE", "mock")
+from app.core.config import get_settings
+
+ADAPTER_MODE = get_settings().tool_adapter_mode
 
 tool_handlers: Dict[str, Any] = {}
 
@@ -96,6 +97,14 @@ async def get_real_execute_action(
     return await _real_adapter_not_configured("execute_action")
 
 
+async def get_real_query_ticket_by_id(ticket_id: str):
+    return await _real_adapter_not_configured("query_ticket_by_id")
+
+
+async def get_real_query_service_metadata(service: str, env: str):
+    return await _real_adapter_not_configured("query_service_metadata")
+
+
 def select_adapter(tool_name: str):
     """Select mock or real adapter based on environment."""
     if ADAPTER_MODE == "real":
@@ -109,6 +118,10 @@ def select_adapter(tool_name: str):
             return get_real_query_runbook
         elif tool_name == "execute_action":
             return get_real_execute_action
+        elif tool_name == "query_ticket_by_id":
+            return get_real_query_ticket_by_id
+        elif tool_name == "query_service_metadata":
+            return get_real_query_service_metadata
         elif tool_name == "query_db_processlist":
             return real_query_db_processlist
         elif tool_name == "query_db_slow_queries":
@@ -580,6 +593,15 @@ class ToolGateway:
         if real_handler and ADAPTER_MODE == "real":
             handler = real_handler
             adapter_info = "real"
+        elif ADAPTER_MODE == "real":
+            latency = int((time.time() - start_time) * 1000)
+            tracer.end_span(span_id, status="error", error=f"No real adapter for {request.tool_name}")
+            return ToolResponse(
+                tool_name=request.tool_name,
+                success=False,
+                error=f"Tool '{request.tool_name}' has no real adapter configured",
+                latency_ms=latency,
+            )
         else:
             handler = self.handlers[request.tool_name]
             adapter_info = "mock"

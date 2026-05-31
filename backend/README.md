@@ -26,7 +26,8 @@ curl http://127.0.0.1:8000/healthz
 
 ```bash
 cd backend
-pytest app/tests/ -x -q
+source venv/bin/activate
+python -m pytest app/tests/ -x -q
 ```
 
 重点测试文件：

@@ -50,17 +50,9 @@ class IntakeService:
                 metadata=data.get("metadata"),
             )
         else:
-            # Fallback: create minimal ticket from ID
-            logger.warning(f"Failed to look up ticket {ticket_id}, creating minimal ticket")
-            return IncidentTicket(
-                ticket_id=ticket_id,
-                title=f"Incident {ticket_id}",
-                description=f"Auto-created from ticket ID: {ticket_id}",
-                service="unknown",
-                env="prod",
-                severity="P3",
-                source="ticket_id_lookup",
-                time_range=normalize_time_range(None),
+            raise ValueError(
+                f"Failed to look up ticket {ticket_id}: {result.error}. "
+                f"Real mode requires a working ticket_id adapter."
             )
 
     def from_alert_event(self, alert: Dict[str, Any]) -> IncidentTicket:

@@ -83,43 +83,34 @@ async def query_logs_from_db(
 
     client = MySQLClient()
 
-    try:
-        rows = await asyncio.to_thread(client.execute_query, data_sql, tuple(params) + (limit,))
-        logs = []
-        for row in rows:
-            level_int = row.get("level", 4)
-            level_str = YII_LEVEL_MAP.get(level_int, f"LEVEL_{level_int}")
-            logs.append(
-                {
-                    "timestamp": datetime.fromtimestamp(row["log_time"]).isoformat()
-                    if row.get("log_time")
-                    else str(row.get("created_at", "")),
-                    "level": level_str,
-                    "message": row.get("message", ""),
-                    "source": row.get("category", ""),
-                }
-            )
+    rows = await asyncio.to_thread(client.execute_query, data_sql, tuple(params) + (limit,))
+    logs = []
+    for row in rows:
+        level_int = row.get("level", 4)
+        level_str = YII_LEVEL_MAP.get(level_int, f"LEVEL_{level_int}")
+        logs.append(
+            {
+                "timestamp": datetime.fromtimestamp(row["log_time"]).isoformat()
+                if row.get("log_time")
+                else str(row.get("created_at", "")),
+                "level": level_str,
+                "message": row.get("message", ""),
+                "source": row.get("category", ""),
+            }
+        )
 
-        MAX_BYTES = 64 * 1024
-        truncated_flag = False
-        while logs and len(json.dumps(logs, ensure_ascii=False, default=str).encode()) > MAX_BYTES:
-            logs.pop()
-            truncated_flag = True
+    MAX_BYTES = 64 * 1024
+    truncated_flag = False
+    while logs and len(json.dumps(logs, ensure_ascii=False, default=str).encode()) > MAX_BYTES:
+        logs.pop()
+        truncated_flag = True
 
-        return {
-            "logs": logs,
-            "count": len(logs),
-            "query": query,
-            "truncated": truncated_flag,
-        }
-    except Exception as e:
-        logger.error(f"query_logs_from_db failed: {e}")
-        return {
-            "logs": [],
-            "count": 0,
-            "query": query,
-            "error": str(e),
-        }
+    return {
+        "logs": logs,
+        "count": len(logs),
+        "query": query,
+        "truncated": truncated_flag,
+    }
 
 
 async def query_db_processlist(**kwargs) -> Dict[str, Any]:
@@ -129,31 +120,21 @@ async def query_db_processlist(**kwargs) -> Dict[str, Any]:
     """
     client = MySQLClient()
 
-    try:
-        rows = await asyncio.to_thread(client.execute_query, "SHOW FULL PROCESSLIST")
-        active = [r for r in rows if r.get("Command", "").lower() != "sleep"]
+    rows = await asyncio.to_thread(client.execute_query, "SHOW FULL PROCESSLIST")
+    active = [r for r in rows if r.get("Command", "").lower() != "sleep"]
 
-        MAX_BYTES = 64 * 1024
-        while (
-            active and len(json.dumps(active, ensure_ascii=False, default=str).encode()) > MAX_BYTES
-        ):
-            active.pop()
+    MAX_BYTES = 64 * 1024
+    while (
+        active and len(json.dumps(active, ensure_ascii=False, default=str).encode()) > MAX_BYTES
+    ):
+        active.pop()
 
-        return {
-            "processlist": active,
-            "total_connections": len(rows),
-            "active_connections": len(active),
-            "response_size_limit_kb": 64,
-        }
-    except Exception as e:
-        logger.error(f"query_db_processlist failed: {e}")
-        return {
-            "processlist": [],
-            "total_connections": 0,
-            "active_connections": 0,
-            "error": str(e),
-            "response_size_limit_kb": 64,
-        }
+    return {
+        "processlist": active,
+        "total_connections": len(rows),
+        "active_connections": len(active),
+        "response_size_limit_kb": 64,
+    }
 
 
 async def query_db_slow_queries(**kwargs) -> Dict[str, Any]:
@@ -164,33 +145,23 @@ async def query_db_slow_queries(**kwargs) -> Dict[str, Any]:
     threshold = kwargs.get("threshold_seconds", 5)
     client = MySQLClient()
 
-    try:
-        rows = await asyncio.to_thread(client.execute_query, "SHOW FULL PROCESSLIST")
-        slow = [
-            r
-            for r in rows
-            if r.get("Time", 0) >= threshold and r.get("Command", "").lower() != "sleep"
-        ]
+    rows = await asyncio.to_thread(client.execute_query, "SHOW FULL PROCESSLIST")
+    slow = [
+        r
+        for r in rows
+        if r.get("Time", 0) >= threshold and r.get("Command", "").lower() != "sleep"
+    ]
 
-        MAX_BYTES = 64 * 1024
-        while slow and len(json.dumps(slow, ensure_ascii=False, default=str).encode()) > MAX_BYTES:
-            slow.pop()
+    MAX_BYTES = 64 * 1024
+    while slow and len(json.dumps(slow, ensure_ascii=False, default=str).encode()) > MAX_BYTES:
+        slow.pop()
 
-        return {
-            "slow_queries": slow,
-            "threshold_seconds": threshold,
-            "count": len(slow),
-            "response_size_limit_kb": 64,
-        }
-    except Exception as e:
-        logger.error(f"query_db_slow_queries failed: {e}")
-        return {
-            "slow_queries": [],
-            "threshold_seconds": threshold,
-            "count": 0,
-            "error": str(e),
-            "response_size_limit_kb": 64,
-        }
+    return {
+        "slow_queries": slow,
+        "threshold_seconds": threshold,
+        "count": len(slow),
+        "response_size_limit_kb": 64,
+    }
 
 
 async def query_db_table_status(**kwargs) -> Dict[str, Any]:
@@ -200,32 +171,22 @@ async def query_db_table_status(**kwargs) -> Dict[str, Any]:
     """
     client = MySQLClient()
 
-    try:
-        rows = await asyncio.to_thread(client.execute_query, "SHOW TABLE STATUS")
-        sorted_rows = sorted(rows, key=lambda r: r.get("Data_length", 0) or 0, reverse=True)[:20]
+    rows = await asyncio.to_thread(client.execute_query, "SHOW TABLE STATUS")
+    sorted_rows = sorted(rows, key=lambda r: r.get("Data_length", 0) or 0, reverse=True)[:20]
 
-        MAX_BYTES = 64 * 1024
-        while (
-            sorted_rows
-            and len(json.dumps(sorted_rows, ensure_ascii=False, default=str).encode()) > MAX_BYTES
-        ):
-            sorted_rows.pop()
+    MAX_BYTES = 64 * 1024
+    while (
+        sorted_rows
+        and len(json.dumps(sorted_rows, ensure_ascii=False, default=str).encode()) > MAX_BYTES
+    ):
+        sorted_rows.pop()
 
-        return {
-            "table_status": sorted_rows,
-            "total_tables": len(rows),
-            "returned_tables": len(sorted_rows),
-            "response_size_limit_kb": 64,
-        }
-    except Exception as e:
-        logger.error(f"query_db_table_status failed: {e}")
-        return {
-            "table_status": [],
-            "total_tables": 0,
-            "returned_tables": 0,
-            "error": str(e),
-            "response_size_limit_kb": 64,
-        }
+    return {
+        "table_status": sorted_rows,
+        "total_tables": len(rows),
+        "returned_tables": len(sorted_rows),
+        "response_size_limit_kb": 64,
+    }
 
 
 async def query_db_variables(**kwargs) -> Dict[str, Any]:
@@ -253,30 +214,22 @@ async def query_db_variables(**kwargs) -> Dict[str, Any]:
 
     client = MySQLClient()
 
-    try:
-        all_vars = await asyncio.to_thread(client.execute_query, "SHOW GLOBAL STATUS")
-        filtered = {
-            row["Variable_name"]: row["Value"]
-            for row in all_vars
-            if row.get("Variable_name") in key_patterns
-        }
+    all_vars = await asyncio.to_thread(client.execute_query, "SHOW GLOBAL STATUS")
+    filtered = {
+        row["Variable_name"]: row["Value"]
+        for row in all_vars
+        if row.get("Variable_name") in key_patterns
+    }
 
-        buffer_pool_hit_rate = 0
-        reads = float(filtered.get("Innodb_buffer_pool_reads", 0))
-        read_requests = float(filtered.get("Innodb_buffer_pool_read_requests", 1))
-        if read_requests > 0:
-            buffer_pool_hit_rate = round((1 - reads / read_requests) * 100, 2)
+    buffer_pool_hit_rate = 0
+    reads = float(filtered.get("Innodb_buffer_pool_reads", 0))
+    read_requests = float(filtered.get("Innodb_buffer_pool_read_requests", 1))
+    if read_requests > 0:
+        buffer_pool_hit_rate = round((1 - reads / read_requests) * 100, 2)
 
-        filtered["buffer_pool_hit_rate_pct"] = buffer_pool_hit_rate
+    filtered["buffer_pool_hit_rate_pct"] = buffer_pool_hit_rate
 
-        return {
-            "variables": filtered,
-            "response_size_limit_kb": 64,
-        }
-    except Exception as e:
-        logger.error(f"query_db_variables failed: {e}")
-        return {
-            "variables": {},
-            "error": str(e),
-            "response_size_limit_kb": 64,
-        }
+    return {
+        "variables": filtered,
+        "response_size_limit_kb": 64,
+    }

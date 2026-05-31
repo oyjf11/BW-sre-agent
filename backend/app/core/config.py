@@ -126,17 +126,21 @@ class Settings(BaseSettings):
                 errors.append(
                     "MINIMAX_API_KEY and MINIMAX_GROUP_ID are required when LLM_PROVIDER=minimax"
                 )
-
-        tracing_provider = self.tracing_provider.lower()
-        if tracing_provider == "langsmith" and self.app_env != AppEnv.DEV:
-            if not self.langsmith_api_key:
-                errors.append("LANGSMITH_API_KEY is required when TRACING_PROVIDER=langsmith")
-        if tracing_provider == "langfuse" and self.app_env != AppEnv.DEV:
-            if not self.langfuse_public_key or not self.langfuse_secret_key:
+            elif self.llm_provider == "deepseek" and not self.deepseek_api_key:
                 errors.append(
-                    "LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required when "
-                    "TRACING_PROVIDER=langfuse"
+                    "DEEPSEEK_API_KEY is required when LLM_PROVIDER=deepseek"
                 )
+
+            tracing_provider = self.tracing_provider.lower()
+            if tracing_provider == "langsmith":
+                if not self.langsmith_api_key:
+                    errors.append("LANGSMITH_API_KEY is required when TRACING_PROVIDER=langsmith")
+            if tracing_provider == "langfuse":
+                if not self.langfuse_public_key or not self.langfuse_secret_key:
+                    errors.append(
+                        "LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required when "
+                        "TRACING_PROVIDER=langfuse"
+                    )
 
         if errors:
             raise ValueError(f"Configuration validation failed: {', '.join(errors)}")

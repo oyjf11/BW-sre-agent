@@ -80,6 +80,8 @@ def chunks_to_evidence(chunks: Iterable[RetrievedChunk]) -> List[EvidenceItem]:
 
 def retrieve(query: str, filters: Dict[str, Any], top_k: Optional[int] = None) -> List[RetrievedChunk]:
     rag_settings = RagSettings()
+    if not rag_settings.enabled:
+        return []
     retriever = build_index().as_retriever(
         similarity_top_k=top_k or rag_settings.top_k,
         filters=_build_filters(filters),

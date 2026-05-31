@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
 > 生成时间: 2026-04-06 | 更新时间: 2026-05-31
-> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；LLM 已切换至 DeepSeek（deepseek-v4-pro）；Phase 8 离线评测尚未启动。
+> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；LLM 已切换至 DeepSeek，具体模型由 `DEEPSEEK_MODEL` 配置；Phase 8 离线评测尚未启动。
 
 ---
 
@@ -324,7 +324,7 @@
   - 前端 View Trace 链结优先使用 `external_trace_url`
   - **LangSmith 真实控制台验证通过**：创建工单后 trace 上报成功，trace URL 包含正确 org/project ID，可在控制台查看 graph.run、node.*、tool.*、llm.* span
   - URL 格式：`https://smith.langchain.com/o/{org_id}/projects/p/{project_id}/r/{run_id}`
-  - LLM 已切换至 DeepSeek（`LLM_PROVIDER=deepseek`，模型 `deepseek-v4-pro`）
+  - LLM 已切换至 DeepSeek（`LLM_PROVIDER=deepseek`，具体模型由 `DEEPSEEK_MODEL` 配置）
 - 后续待做：
   - Langfuse 真实环境验证（代码已就绪，配置即用）
   - 详见 `docs/superpowers/plans/2026-05-30-external-tracing-provider.md`

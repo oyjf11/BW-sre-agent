@@ -125,7 +125,13 @@ class TestMySQLToolsViaGateway:
 
 class TestQueryLogsFromDB:
     @pytest.mark.asyncio
-    async def test_query_logs_from_db_returns_error_when_mysql_unavailable(self):
+    async def test_query_logs_from_db_returns_empty_when_no_matching_logs(self, monkeypatch):
+        monkeypatch.setattr(
+            mysql_adapter_module.MySQLClient,
+            "execute_query",
+            lambda self, sql, params=None: [],
+        )
+
         result = await query_logs_from_db(service="crm-service", env="prod")
 
         assert "logs" in result
@@ -133,7 +139,6 @@ class TestQueryLogsFromDB:
         assert "query" in result
         assert result["query"] == "*"
         assert result["count"] == 0
-        assert "error" in result
 
     @pytest.mark.asyncio
     async def test_query_logs_from_db_applies_category_filters(self, monkeypatch):
@@ -183,15 +188,27 @@ class TestQueryLogsFromDB:
         assert result["query"] == "Lock wait timeout"
 
     @pytest.mark.asyncio
-    async def test_query_logs_from_db_sql_injection_safe(self):
-        result = await query_logs_from_db(
+    async def test_query_logs_from_db_sql_injection_safe(self, monkeypatch):
+        captured = {}
+
+        def fake_execute_query(self, sql, params=None):
+            captured["sql"] = sql
+            captured["params"] = params
+            return []
+
+        monkeypatch.setattr(
+            mysql_adapter_module.MySQLClient,
+            "execute_query",
+            fake_execute_query,
+        )
+
+        await query_logs_from_db(
             service="test",
             env="prod",
             query="'; DROP TABLE--",
         )
 
-        assert "error" in result
-        assert "DROP TABLE" not in result.get("error", "")
+        assert "DROP TABLE" not in captured.get("sql", "")
 
     @pytest.mark.asyncio
     async def test_query_logs_from_db_respects_limit(self, monkeypatch):

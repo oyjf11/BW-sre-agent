@@ -1,4 +1,3 @@
-import os
 import logging
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
@@ -6,13 +5,27 @@ from typing import Any, Dict, List, Optional
 import pymysql
 from pymysql.cursors import DictCursor
 
+from app.core.config import get_settings
+
 logger = logging.getLogger(__name__)
 
-MYSQL_HOST = os.getenv("MYSQL_HOST", "")
-MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
-MYSQL_USER = os.getenv("MYSQL_USER", "")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
-MYSQL_DB = os.getenv("MYSQL_DB", "")
+
+def _get_mysql_config():
+    settings = get_settings()
+    return {
+        "host": settings.mysql_host,
+        "port": settings.mysql_port,
+        "user": settings.mysql_user,
+        "password": settings.mysql_password,
+        "database": settings.mysql_db,
+    }
+
+
+MYSQL_HOST_DEFAULT = ""
+MYSQL_PORT_DEFAULT = 3306
+MYSQL_USER_DEFAULT = ""
+MYSQL_PASSWORD_DEFAULT = ""
+MYSQL_DB_DEFAULT = ""
 
 CONNECT_TIMEOUT = 5
 READ_TIMEOUT = 10
@@ -35,11 +48,12 @@ class MySQLClient:
         password: str = None,
         database: str = None,
     ):
-        self.host = host or MYSQL_HOST
-        self.port = port or MYSQL_PORT
-        self.user = user or MYSQL_USER
-        self.password = password or MYSQL_PASSWORD
-        self.database = database or MYSQL_DB
+        cfg = _get_mysql_config()
+        self.host = host or cfg["host"]
+        self.port = port or cfg["port"]
+        self.user = user or cfg["user"]
+        self.password = password or cfg["password"]
+        self.database = database or cfg["database"]
 
     @contextmanager
     def _connection(self):
