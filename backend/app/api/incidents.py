@@ -178,11 +178,6 @@ def _build_trace_url(run_id: str, external_trace_url: Optional[str] = None) -> s
 
     settings = get_settings()
     base_url = settings.tracing_public_base_url or settings.tracing_base_url
-    provider = settings.tracing_provider.lower()
-    if provider == "langfuse" and base_url:
-        return f"{base_url.rstrip('/')}/project/{settings.tracing_project}/traces/{run_id}"
-    if provider == "langsmith" and base_url:
-        return f"{base_url.rstrip('/')}/o/{settings.tracing_project}/projects/p/default/runs/{run_id}"
     if base_url:
         return f"{base_url.rstrip('/')}/incidents/runs/{run_id}/trace"
     return f"/incidents/runs/{run_id}/trace"

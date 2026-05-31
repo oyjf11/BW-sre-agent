@@ -121,6 +121,12 @@ class FakeLangSmithClient:
     def flush(self):
         self.flushed = True
 
+    def list_runs(self, project_name=None, limit=1):
+        run = SimpleNamespace(
+            url="https://smith.example/o/opspilot/projects/p/default/runs/dummy-run-1"
+        )
+        return [run]
+
 
 class FakeRunTree:
     counter = 0
@@ -136,6 +142,7 @@ class FakeRunTree:
         self.patched = False
         self.outputs = None
         self.error = None
+        self.url = f"https://smith.example/o/opspilot/projects/p/default/runs/{self.id}"
 
     def create_child(self, **kwargs):
         child = FakeRunTree(**kwargs)
@@ -353,7 +360,7 @@ def test_langsmith_provider_creates_root_and_child_runs(monkeypatch):
     assert fake_client_holder["client"].api_url == "https://api.smith.example"
     assert root_result.external_trace_id == "run-tree-1"
     assert child_result.external_span_id == "run-tree-2"
-    assert root_result.external_trace_url == "https://smith.example/o/opspilot/projects/p/default/runs/run-tree-1"
+    assert root_result.external_trace_url == "https://smith.example/o/opspilot/projects/p/default/r/run-tree-1?trace_id=run-tree-1"
     root_run = provider._runs.get("span_root")
     assert root_run is None
     assert fake_client_holder["client"].flushed is True

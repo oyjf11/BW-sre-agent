@@ -130,6 +130,7 @@ def test_get_run_trace_returns_spans_and_local_url():
     app, session_factory = create_test_client()
     seed_run_with_checkpoint(session_factory)
     tracer.clear()
+    tracer.configure_provider(LocalTraceProvider())
     span_id = tracer.start_span("graph.run", run_id="run-123")
     tracer.add_event(span_id, "node_started", {"node_name": "node_intake"})
     tracer.end_span(span_id)

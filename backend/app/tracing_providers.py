@@ -222,6 +222,9 @@ class LangSmithTraceProvider:
         self.config = config
         self._runs: Dict[str, Any] = {}
         self._root_run_ids_by_run: Dict[str, str] = {}
+        self._trace_urls_by_run: Dict[str, str] = {}
+        self._org_id: Optional[str] = None
+        self._project_id: Optional[str] = None
 
         _seed_env_if_missing("LANGSMITH_API_KEY", config.langsmith_api_key)
         _seed_env_if_missing("LANGSMITH_ENDPOINT", config.langsmith_endpoint)
@@ -234,6 +237,21 @@ class LangSmithTraceProvider:
             api_key=config.langsmith_api_key,
             api_url=config.langsmith_endpoint or None,
         )
+
+        try:
+            runs = list(self.client.list_runs(project_name=config.tracing_project, limit=1))
+            if runs:
+                run_url = runs[0].url
+                if "/o/" in run_url:
+                    o_start = run_url.index("/o/") + len("/o/")
+                    o_end = run_url.index("/", o_start)
+                    self._org_id = run_url[o_start:o_end]
+                if "/projects/p/" in run_url:
+                    prefix = run_url.index("/projects/p/") + len("/projects/p/")
+                    proj_end = run_url.index("/", prefix)
+                    self._project_id = run_url[prefix:proj_end]
+        except Exception:
+            logger.warning("Failed to resolve LangSmith org/project IDs", exc_info=True)
 
     def _base_url(self) -> str:
         return (
@@ -313,10 +331,16 @@ class LangSmithTraceProvider:
         run_tree.patch()
 
     def get_trace_url(self, run_id: str) -> Optional[str]:
+        cached = self._trace_urls_by_run.get(run_id)
+        if cached:
+            return cached
         root_run_id = self._root_run_ids_by_run.get(run_id)
-        if not root_run_id:
+        if not root_run_id or not self._org_id or not self._project_id:
             return None
-        return f"{self._base_url()}/o/{self.config.tracing_project}/projects/p/default/runs/{root_run_id}"
+        return (
+            f"{self._base_url()}/o/{self._org_id}/projects/p/{self._project_id}"
+            f"/r/{root_run_id}?trace_id={root_run_id}"
+        )
 
     def flush(self) -> None:
         if hasattr(self.client, "flush"):
