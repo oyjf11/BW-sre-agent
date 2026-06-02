@@ -1,0 +1,120 @@
+# Test Selection
+# 生成方式: /vibe-select-tests
+# 输入: impact.json + git diff + package.json
+# 输出: must_run / should_run / skip 三级
+
+task_id: {{TASK_ID}}
+generated_at: {{TIMESTAMP}}
+
+# ── 输入来源 ──────────────────────────
+
+inputs:
+  impact_json: "{{IMPACT_JSON_PATH}}"
+  git_diff: "{{GIT_DIFF_REF}}"
+  package_json: "{{PACKAGE_JSON_PATH}}"
+
+# ── 测试选择 ──────────────────────────
+
+selections:
+
+  # === 后端单元测试 ===
+  backend_unit:
+    command: "{{BACKEND_UNIT_CMD}}"
+    must_run: []
+      # - path: backend/app/tests/test_xxx.py
+      #   reason: 直接修改了 backend/app/xxx.py
+    should_run: []
+      # - path: backend/app/tests/test_yyy.py
+      #   reason: yyy.py 导入被修改模块，间接影响
+    skip: []
+      # - path: backend/app/tests/test_zzz.py
+      #   reason: 与本次变更无任何关联
+
+  # === 前端单元测试 ===
+  frontend_unit:
+    command: "{{FRONTEND_UNIT_CMD}}"
+    must_run: []
+    should_run: []
+    skip: []
+
+  # === 集成测试 ===
+  integration:
+    command: "{{INTEGRATION_CMD}}"
+    must_run: []
+    should_run: []
+    skip: []
+    skip_all_reason: ""   # 如果全部跳过，必须说明原因
+
+  # === Playwright E2E ===
+  e2e:
+    command: "{{E2E_CMD}}"
+    must_run: []
+    should_run: []
+    skip: []
+    skip_all_reason: ""
+
+# ── 汇总 ──────────────────────────────
+
+summary:
+  total_tests_selected: {{TOTAL_SELECTED}}
+  total_tests_skipped: {{TOTAL_SKIPPED}}
+  estimated_run_time: "{{ESTIMATED_TIME}}"
+  must_count: {{MUST_COUNT}}
+  should_count: {{SHOULD_COUNT}}
+  skip_count: {{SKIP_COUNT}}
+
+# ── 执行顺序 ──────────────────────────
+
+execution_order:
+  - step: 1
+    group: "backend_unit"
+    items: "must_run"
+    blocking: true  # 失败则停止后续
+
+  - step: 2
+    group: "frontend_unit"
+    items: "must_run"
+    blocking: true
+
+  - step: 3
+    group: "integration"
+    items: "must_run"
+    blocking: true
+
+  - step: 4
+    group: "e2e"
+    items: "must_run"
+    blocking: false  # E2E 失败不阻止 should_run
+
+  - step: 5
+    group: "all"
+    items: "should_run"
+    blocking: false
+
+# ── 选择规则引擎（供参考，不修改） ──
+
+selection_rules:
+
+  must_run_triggers:
+    - condition: "file_in_diff matches test_file's source"
+      rule: "must_run"
+    - condition: "impact.affected_apis consumer matches test"
+      rule: "must_run"
+    - condition: "impact.affected_routes endpoint matches e2e spec"
+      rule: "must_run"
+    - condition: "impact.risk_analysis.regression_risk == high"
+      rule: "所有模块相关测试 must_run"
+
+  should_run_triggers:
+    - condition: "同一模块内，但非直接修改文件"
+      rule: "should_run"
+    - condition: "共享 util/helper 被修改，其所有消费者测试"
+      rule: "should_run"
+
+  skip_triggers:
+    - condition: "测试文件所在模块未出现在 impact.affected_files 中"
+      rule: "skip"
+    - condition: "测试文件超过 6 个月未变更且模块未受影响"
+      rule: "skip"
+    - condition: "task_size == XS AND 测试文件非直接关联"
+      rule: "skip"

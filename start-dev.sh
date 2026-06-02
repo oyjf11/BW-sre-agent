@@ -108,6 +108,25 @@ echo "Frontend URL: http://$FRONTEND_HOST:$FRONTEND_PORT"
 echo "Press Ctrl+C to stop both services."
 echo
 
+wait_for_backend() {
+  local max_attempts=30
+  local attempt=0
+  while [[ $attempt -lt $max_attempts ]]; do
+    if kill -0 "$BACKEND_PID" >/dev/null 2>&1; then
+      if curl -sf --max-time 2 "http://$BACKEND_HOST:$BACKEND_PORT/healthz" >/dev/null 2>&1; then
+        echo "[OK] Backend health check passed."
+        return 0
+      fi
+    fi
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+  echo "[WARN] Backend did not become healthy within ${max_attempts}s."
+  return 1
+}
+
+wait_for_backend
+
 while true; do
   if ! kill -0 "$BACKEND_PID" >/dev/null 2>&1; then
     wait "$BACKEND_PID" >/dev/null 2>&1 || true

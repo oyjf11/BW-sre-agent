@@ -95,10 +95,10 @@ export function ApprovalsPage() {
           className="input px-4 py-2"
         >
           <option value="">{t('approval.riskLevel') === '风险等级' ? '全部风险' : 'All Risks'}</option>
-          <option value="CRITICAL">Critical</option>
-          <option value="HIGH">High</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="LOW">Low</option>
+          <option value="CRITICAL">{t('approval.riskLevels.CRITICAL')}</option>
+          <option value="HIGH">{t('approval.riskLevels.HIGH')}</option>
+          <option value="MEDIUM">{t('approval.riskLevels.MEDIUM')}</option>
+          <option value="LOW">{t('approval.riskLevels.LOW')}</option>
         </select>
       </div>
       
@@ -117,6 +117,9 @@ export function ApprovalsPage() {
                 <th className="px-6 py-4 text-left text-xs font-medium text-content-muted uppercase tracking-wider">ID</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-content-muted uppercase tracking-wider">{t('run.service')}/{t('run.environment')}</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-content-muted uppercase tracking-wider">{t('approval.riskLevel')}</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-content-muted uppercase tracking-wider">工单ID</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-content-muted uppercase tracking-wider">标题</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-content-muted uppercase tracking-wider">描述</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-content-muted uppercase tracking-wider">{t('common.created')}</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-content-muted uppercase tracking-wider">{t('common.actions')}</th>
               </tr>
@@ -138,6 +141,15 @@ export function ApprovalsPage() {
                     <span className={`px-2 py-1 text-xs rounded font-medium ${getRiskClass(item.risk_level || '')}`}>
                       {item.risk_level}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-content-secondary font-mono">
+                    {item.ticket_id || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-content-secondary max-w-[200px] truncate" title={item.title}>
+                    {item.title || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-content-muted max-w-[200px] truncate" title={item.description}>
+                    {item.description || '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-content-muted">
                     {new Date(item.created_at).toLocaleString()}

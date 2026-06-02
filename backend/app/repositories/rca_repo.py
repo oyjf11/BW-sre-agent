@@ -21,6 +21,10 @@ class RcaRepo:
         supporting_evidence_ids: Optional[List[str]] = None,
         executed_action_ids: Optional[List[str]] = None,
         archive_ref: Optional[str] = None,
+        root_cause_status: Optional[str] = None,
+        candidate_hypotheses: Optional[List[dict]] = None,
+        automation_outcome: Optional[dict] = None,
+        manual_next_steps: Optional[List[str]] = None,
     ) -> IncidentRcaReport:
         existing = (
             self.db.query(IncidentRcaReport)
@@ -39,6 +43,14 @@ class RcaRepo:
             existing.executed_action_ids_json = executed_action_ids
             if archive_ref:
                 existing.archive_ref = archive_ref
+            if root_cause_status is not None:
+                existing.root_cause_status = root_cause_status
+            if candidate_hypotheses is not None:
+                existing.candidate_hypotheses_json = candidate_hypotheses
+            if automation_outcome is not None:
+                existing.automation_outcome_json = automation_outcome
+            if manual_next_steps is not None:
+                existing.manual_next_steps_json = manual_next_steps
             self.db.commit()
             self.db.refresh(existing)
             return existing
@@ -55,6 +67,10 @@ class RcaRepo:
                 supporting_evidence_ids_json=supporting_evidence_ids,
                 executed_action_ids_json=executed_action_ids,
                 archive_ref=archive_ref,
+                root_cause_status=root_cause_status,
+                candidate_hypotheses_json=candidate_hypotheses,
+                automation_outcome_json=automation_outcome,
+                manual_next_steps_json=manual_next_steps,
             )
             self.db.add(rca)
             self.db.commit()

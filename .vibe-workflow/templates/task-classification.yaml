@@ -1,0 +1,75 @@
+# Task Classification
+# 生成方式: /vibe-classify-task
+# 用途: 根据任务特征自动分档，推荐最简流程
+
+task_id: {{TASK_ID}}
+task_slug: {{TASK_SLUG}}
+classified_at: {{TIMESTAMP}}
+
+# ── 分类维度 ──────────────────────────
+
+dimensions:
+  estimated_files_touched: {{FILE_COUNT}}     # 预计修改文件数
+  modules_affected: {{MODULE_COUNT}}           # 涉及的模块数
+  has_new_api: {{HAS_NEW_API}}                # 是否新增 API
+  has_db_change: {{HAS_DB_CHANGE}}            # 是否涉及 DB schema
+  has_ui_change: {{HAS_UI_CHANGE}}            # 是否涉及前端 UI
+  has_auth_change: {{HAS_AUTH_CHANGE}}        # 是否涉及权限
+  is_bugfix: {{IS_BUGFIX}}                    # 是否为 Bug 修复
+  is_refactor: {{IS_REFACTOR}}                # 是否为重构
+  is_greenfield: {{IS_GREENFIELD}}            # 是否为新功能
+  crosses_teams: {{CROSSES_TEAMS}}            # 是否跨团队边界
+
+# ── 分档结果 ──────────────────────────
+
+size: {{SIZE}}                                # XS | S | M | L
+confidence: {{CONFIDENCE}}                    # high | medium | low
+
+## size 规则
+
+### XS
+- 1 个文件，纯文案/配置/注释
+- 一个简单 Bug 修复（逻辑一行改）
+- 不涉及 API / DB / UI 变更
+- **最短流程: clarify → implement → review**
+
+### S
+- 2-5 个文件，单一模块内
+- Bug 修复或小增强
+- 可能涉及 1 个 API 或 1 个 UI 组件
+- **最短流程: clarify → design → implement → test → review**
+
+### M
+- 5-15 个文件，跨 2-3 个模块
+- 新增 API + 前端页面
+- 可能涉及 DB 变更
+- **最短流程: clarify → design → detailed → implement → unit → integration → review**
+
+### L
+- 15+ 文件，跨 3+ 个模块
+- 新增子系统、DB migration、权限模型变更
+- 需要架构评审
+- **完整流程: 全部 11 阶段**
+
+# ── 推荐流程 ──────────────────────────
+
+recommended_flow:
+  stages:
+    {{#each RECOMMENDED_STAGES}}
+    - name: {{STAGE_NAME}}
+      required: {{REQUIRED}}
+      skip_reason: {{SKIP_REASON}}
+    {{/each}}
+
+  rationale: |
+    {{RATIONALE}}
+
+# ── 合并规则 ──────────────────────────
+
+# XS 可合并: clarify + implement 一步完成
+# S 可合并: design + detailed 一步完成
+# M 可合并: frontend-design + backend-design 可并行但必须分别产出
+# L 不可合并
+
+merge_allowed: {{MERGE_ALLOWED}}
+merged_stages: {{MERGED_STAGES}}

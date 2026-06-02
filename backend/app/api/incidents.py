@@ -68,6 +68,8 @@ class IncidentRunResponse(BaseModel):
     service: Optional[str] = None
     env: Optional[str] = None
     current_node: Optional[str] = None
+    halted_at_node: Optional[str] = None
+    terminal_reason: Optional[Dict[str, Any]] = None
     step_count: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -136,6 +138,8 @@ def _run_to_response(run) -> IncidentRunResponse:
         service=run.service,
         env=run.env,
         current_node=run.current_node,
+        halted_at_node=getattr(run, "halted_at_node", None),
+        terminal_reason=getattr(run, "terminal_reason_json", None),
         step_count=run.step_count or 0,
         created_at=run.created_at,
         updated_at=run.updated_at,
@@ -286,6 +290,10 @@ async def get_run_trace(run_id: str, db=Depends(get_db)):
     )
 
 
+def _format_sse_event(event: Dict[str, Any]) -> Dict[str, str]:
+    return {"data": json.dumps(event, default=str)}
+
+
 @router.get("/runs/{run_id}/stream")
 async def stream_events(run_id: str, db=Depends(get_db)):
     runs_repo = RunsRepo(db)
@@ -297,7 +305,7 @@ async def stream_events(run_id: str, db=Depends(get_db)):
 
     async def generate():
         async for event in event_bus.iter_events(run_id):
-            yield {"event": event["type"], "data": json.dumps(event, default=str)}
+            yield _format_sse_event(event)
 
     return EventSourceResponse(generate())
 
@@ -319,6 +327,18 @@ async def get_run_evidence(run_id: str, db=Depends(get_db)):
         }
         for ev in items
     ]
+
+
+@router.get("/runs/{run_id}/evidence/collection-results")
+async def get_evidence_collection_results(run_id: str, db=Depends(get_db)):
+    state = _load_latest_checkpoint_state(run_id, db)
+    return {
+        "run_id": run_id,
+        "collection_results": state.get("evidence_collection_results", []),
+        "evidence_quality_score": state.get("evidence_quality_score"),
+        "missing_evidence_categories": state.get("missing_evidence_categories", []),
+        "failed_evidence_tools": state.get("failed_evidence_tools", []),
+    }
 
 
 @router.get("/runs/{run_id}/actions")
@@ -383,6 +403,7 @@ async def get_rca(run_id: str, db=Depends(get_db)):
         "run_id": rca.run_id,
         "report_markdown": rca.report_markdown,
         "root_cause": rca.root_cause,
+        "root_cause_status": getattr(rca, "root_cause_status", None),
         "resolution": rca.resolution,
         "prevention_items": rca.prevention_items_json,
         "confirmed_by_human": bool(rca.confirmed_by_human),
@@ -390,6 +411,9 @@ async def get_rca(run_id: str, db=Depends(get_db)):
         "impact_assessment": rca.impact_assessment,
         "supporting_evidence_ids": rca.supporting_evidence_ids_json,
         "executed_action_ids": rca.executed_action_ids_json,
+        "candidate_hypotheses": getattr(rca, "candidate_hypotheses_json", None),
+        "automation_outcome": getattr(rca, "automation_outcome_json", None),
+        "manual_next_steps": getattr(rca, "manual_next_steps_json", None),
         "archive_ref": rca.archive_ref,
     }
 

@@ -60,6 +60,7 @@ class ControlledExecutor:
     ) -> ExecutionResult:
         # 1. Idempotency check
         if idempotency_key:
+            from app.i18n import t, get_action_name
             existing = self.actions_repo.get_by_idempotency(idempotency_key)
             if existing and existing.execution_status in ("COMPLETED", "EXECUTING"):
                 logger.info(
@@ -69,7 +70,7 @@ class ControlledExecutor:
                     db=self.db,
                     run_id=run_id,
                     event_type=EventType.ACTION_STARTED,
-                    message=f"Skipped (idempotent): {action_type} on {service}/{env}",
+                    message=t("action_skipped", action_name=get_action_name(action_type), service=service, env=env),
                     data={
                         "action_id": existing.action_id,
                         "skipped": True,
@@ -101,11 +102,12 @@ class ControlledExecutor:
                     status="PRECONDITION_FAILED",
                     result={"failed_preconditions": failed},
                 )
+                from app.i18n import t, get_action_name
                 event_bus.publish(
                     db=self.db,
                     run_id=run_id,
                     event_type=EventType.ACTION_FAILED,
-                    message=f"Precondition failed for {action_type}: {', '.join(failed)}",
+                    message=t("precondition_failed", action_name=get_action_name(action_type), reasons=", ".join(failed)),
                     data={"action_id": action_rec.action_id, "failed_preconditions": failed},
                 )
                 return ExecutionResult(
@@ -126,11 +128,12 @@ class ControlledExecutor:
         )
         self.actions_repo.mark_started(action_rec.action_id, attempt_no=attempt_no)
 
+        from app.i18n import t, get_action_name
         event_bus.publish(
             db=self.db,
             run_id=run_id,
             event_type=EventType.ACTION_STARTED,
-            message=f"Executing {action_type} on {service}/{env} (attempt {attempt_no})",
+            message=t("action_started", action_name=get_action_name(action_type), service=service, env=env, attempt_no=attempt_no),
             data={
                 "action_id": action_rec.action_id,
                 "action_type": action_type,
@@ -158,11 +161,12 @@ class ControlledExecutor:
                     status="COMPLETED",
                     result=tool_result.result,
                 )
+                from app.i18n import t, get_action_name
                 event_bus.publish(
                     db=self.db,
                     run_id=run_id,
                     event_type=EventType.ACTION_COMPLETED,
-                    message=f"Completed {action_type} on {service}/{env}",
+                    message=t("action_completed", action_name=get_action_name(action_type), service=service, env=env),
                     data={"action_id": action_rec.action_id, "result": tool_result.result},
                 )
                 return ExecutionResult(
@@ -176,11 +180,12 @@ class ControlledExecutor:
                     status="FAILED",
                     result={"error": tool_result.error},
                 )
+                from app.i18n import t, get_action_name
                 event_bus.publish(
                     db=self.db,
                     run_id=run_id,
                     event_type=EventType.ACTION_FAILED,
-                    message=f"Failed {action_type} on {service}/{env}: {tool_result.error}",
+                    message=t("action_failed", action_name=get_action_name(action_type), service=service, env=env, error=tool_result.error),
                     data={"action_id": action_rec.action_id, "error": tool_result.error},
                 )
                 return ExecutionResult(

@@ -1,10 +1,20 @@
-# OpsPilot Agent - 编码指南
+# OpsPilot Agent — 编码指南 + 工程化开发总规则
 
 > 所有 AI 编码助手（Qwen/Claude/Codex 等）启动时必读。用中文回复用户。
 
+## 总原则
+
+1. **先理解，再计划，再修改。** 不允许在需求不清、影响面不清、验收标准不清的情况下直接改代码。
+2. **小步闭环。** 每次只完成一个可验证的最小垂直切片。
+3. **测试与实现同步。** 新功能、重构、修复都必须补充或更新测试。
+4. **禁止计划外重构。** 除非任务明确要求，否则不要顺手重构无关模块。
+5. **禁止隐式扩大范围。** 修改范围必须与任务设计文档一致。
+6. **所有结论必须可追溯。** 关键判断要说明依据：文件、接口、测试结果、日志或现有约定。
+7. **人类拥有最终决策权。** 任何破坏性操作、依赖升级、数据库迁移、接口协议变更必须先说明风险并请求确认。
+
 ## 项目一句话介绍
 
-OpsPilot 是一个 SRE 故障处置智能体，使用 LangGraph 编排 13 个节点的工作流：
+OpsPilot 是一个 SRE 故障处置智能体，使用 LangGraph 编排 14 个节点的工作流：
 intake -> triage -> retrieve_memory -> planner -> evidence_fanout -> evidence_aggregate -> diagnose -> critic -> remediation -> risk_gate -> approval_interrupt/executor -> verify -> rca
 
 ## 启动命令
@@ -171,7 +181,105 @@ curl -s http://127.0.0.1:8000/incidents/runs/{run_id}/trace | python3 -m json.to
 
 ## 当前进度
 
-详见 ACTION_PLAN.md（唯一项目进度源）。Phase 1-7 已完成；LangSmith 真实控制台验证已通过，Langfuse 代码已就绪待真实环境验收。下一步是 Phase 8 离线评测，Phase 9/10 为后续增强。
+详见 ACTION_PLAN.md（唯一项目进度源）。Phase 1-7 已完成；LangSmith 真实控制台验证已通过，Langfuse 代码已就绪待真实环境验收；Phase 8 启动前 real adapter 收口已完成。下一步是 Phase 8 离线评测，Phase 9/10 为后续增强。
+
+## 开发流程与产物规范
+
+每个需求应按以下阶段推进：
+
+1. 需求采集 / 需求澄清
+2. 需求设计
+3. 详细设计 → 前端详细设计 → 后端详细设计
+4. 代码编写
+5. 前后端单元测试
+6. 集成测试
+7. Playwright 端到端测试
+8. 知识沉淀
+
+如果任务很小可合并阶段，但必须至少产出：**任务理解 → 修改计划 → 修改文件清单 → 验收方式 → 测试结果 → 风险说明**。
+
+所有中间设计产物放在 `.vibe-workflow/tasks/<YYYY-MM-DD>-<task-slug>/` 下，推荐文件：
+
+```
+01-requirements-clarification.md    # 需求澄清
+02-requirements-design.md           # 需求设计
+03-detailed-design.md               # 详细设计
+04-frontend-detailed-design.md      # 前端详细设计
+05-backend-detailed-design.md       # 后端详细设计
+06-implementation-plan.md           # 实现计划
+07-unit-test-report.md              # 单元测试报告
+08-integration-test-report.md       # 集成测试报告
+09-e2e-playwright-report.md         # E2E 测试报告
+10-knowledge-capture.md             # 知识沉淀
+```
+
+## 代码修改规则
+
+修改代码前必须回答：
+
+- 这次要解决什么问题？
+- 涉及哪些模块？
+- 要改哪些文件？
+- 明确不改哪些文件？
+- 如何验证？
+- 失败如何回滚？
+
+代码实现要求：
+
+- 优先复用现有架构、工具函数、组件、请求封装、状态管理模式。
+- 不引入新依赖，除非已说明原因、替代方案和风险。
+- 不修改锁文件，除非任务明确需要依赖变更。
+- 不改格式化无关的大面积文件。
+- 不删除测试，除非明确说明测试过时并补充新测试。
+- 不在业务代码中硬编码敏感信息。
+
+## Review 规则
+
+Review Agent 必须只读审查，不得直接修改文件。审查重点：
+
+- 是否满足需求和验收标准
+- 是否越权修改
+- 是否引入回归
+- 是否存在类型、空值、异常、并发、权限、安全问题
+- 是否补充了必要测试
+- 是否需要更新文档和知识库
+
+## 知识沉淀规则
+
+每次任务结束后，必须沉淀以下内容：
+
+- 本次关键设计决策
+- 失败/踩坑/绕路
+- 下次可复用的检查清单
+- 应写入 AGENTS.md 的长期规则
+- 应沉淀成 Skill 的重复性流程
+- 对项目架构或测试体系的改进建议
+
+## 禁止事项
+
+- 禁止直接执行 `rm -rf`、强制 reset、强制 push、删除数据库、清空数据等破坏性命令。
+- 禁止在未说明风险时执行迁移、升级、重装依赖。
+- 禁止把测试失败解释为「环境问题」后跳过，必须给出证据。
+- 禁止用「可能」「应该」替代验证结果。
+- 禁止跳过 Review 和知识沉淀。
+
+## 测试命令
+
+Agent 应先检查项目实际脚本是否存在，再执行。当前项目可用命令：
+
+```bash
+# 后端测试
+cd backend && source venv/bin/activate && python -m pytest app/tests/ -x -q
+
+# 前端测试
+cd frontend && npx vitest run
+
+# 前端 lint / typecheck
+cd frontend && npm run lint
+cd frontend && npm run typecheck
+```
+
+若项目没有对应脚本，Agent 必须说明缺失，并建议补充 `package.json` scripts。
 
 ## 编码规范
 

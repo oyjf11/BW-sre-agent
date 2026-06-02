@@ -59,13 +59,16 @@
       "PLANNED": "Planned",
       "GATHERING_EVIDENCE": "Gathering Evidence",
       "DIAGNOSED": "Diagnosed",
+      "RISK_GATE": "Risk Assessment",
       "PENDING_APPROVAL": "Pending Approval",
       "WAITING_HUMAN": "Waiting Human",
+      "NEEDS_HUMAN": "Needs Human",
       "EXECUTING": "Executing",
       "VERIFYING": "Verifying",
       "COMPLETED": "Completed",
       "FAILED": "Failed"
     },
+    "needsHuman": "Automation cannot proceed — human takeover required",
     "notFound": "Run not found",
     "loadFailed": "Failed to load",
     "events": "Events",
@@ -83,7 +86,42 @@
     },
     "approvalPending": "Human approval required before execution",
     "viewApprovals": "Review approvals",
-    "currentNode": "Current Node"
+    "currentNode": "Current Node",
+    "runId": "Run ID",
+    "realtimeFallback": "Realtime connection interrupted. Switched to automatic refresh and attempting to reconnect.",
+    "retry": "Retry",
+    "updatedAt": "Updated {{time}}",
+    "collectingEvidence": "Collecting evidence...",
+    "generatingDiagnosis": "Generating diagnosis...",
+    "generatingRemediation": "Generating remediation...",
+    "refreshing": "Refreshing..."
+  },
+  "event": {
+    "filterAll": "All",
+    "filterError": "Error",
+    "filterWarning": "Warning",
+    "filterInfo": "Info",
+    "autoScroll": "Auto-scroll",
+    "noEvents": "No events"
+  },
+  "evidence": {
+    "confidence": "Confidence",
+    "freshness": "Freshness",
+    "noEvidence": "No evidence collected yet"
+  },
+  "diagnosis": {
+    "noCandidates": "No root cause candidates yet",
+    "rootCauseCandidates": "Root Cause Candidates",
+    "supportingEvidence": "Supporting evidence",
+    "nextChecks": "Next checks"
+  },
+  "remediation": {
+    "noPlan": "No remediation plan yet",
+    "waitingApproval": "Waiting for human approval",
+    "actions": "Actions",
+    "on": "on",
+    "in": "in",
+    "rollback": "Rollback"
   },
   "approval": {
     "title": "Pending Approvals",
@@ -96,8 +134,17 @@
     "rejected": "Rejected",
     "pending": "Pending",
     "riskLevel": "Risk Level",
+    "reason": "Reason",
+    "modifiedParams": "Modified Parameters (JSON)",
+    "needMoreInfo": "Need More Info",
     "comment": "Comment",
-    "commentPlaceholder": "Enter your comment..."
+    "commentPlaceholder": "Enter your comment...",
+    "riskLevels": {
+      "CRITICAL": "Critical",
+      "HIGH": "High",
+      "MEDIUM": "Medium",
+      "LOW": "Low"
+    }
   },
   "rca": {
     "title": "Root Cause Analysis",
@@ -106,9 +153,22 @@
     "resolution": "Resolution",
     "prevention": "Prevention",
     "pending": "Root cause analysis pending",
-    "exportMarkdown": "Export Markdown"
+    "exportMarkdown": "Export Markdown",
+    "confirmedByHuman": "Confirmed by human",
+    "yes": "Yes",
+    "no": "No"
   },
   "validation": {
     "titleOrTicketIdRequired": "Either title or ticket_id is required"
+  },
+  "time": {
+    "justNow": "just now",
+    "minutesAgo": "m ago",
+    "hoursAgo": "h ago"
+  },
+  "api": {
+    "unknownError": "Unknown error",
+    "requestFailed": "Request failed",
+    "requestTimeout": "Request timeout"
   }
 }

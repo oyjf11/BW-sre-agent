@@ -89,7 +89,7 @@ describe('runs', () => {
   });
 
   describe('getRunEvents', () => {
-    it('fetches events without timestamp', async () => {
+    it('fetches events without event ID', async () => {
       const mockEvents = [
         { event_id: 'ev-1', run_id: 'run-123', level: 'INFO', message: 'Started', timestamp: '2024-01-15T10:00:00Z' },
       ];
@@ -102,16 +102,24 @@ describe('runs', () => {
       expect(result).toEqual(mockEvents);
     });
 
-    it('fetches events with lastEventTs', async () => {
+    it('fetches events after the last event ID', async () => {
       const mockEvents = [
-        { event_id: 'ev-2', run_id: 'run-123', level: 'INFO', message: 'Updated', timestamp: '2024-01-15T11:00:00Z' },
+        {
+          event_id: 'evt-2',
+          run_id: 'run-123',
+          level: 'INFO',
+          message: 'Updated',
+          timestamp: '2026-06-02T10:00:01Z',
+        },
       ];
       
       vi.mocked(mockApi.get).mockResolvedValue(mockEvents);
 
-      const result = await runs.getRunEvents('run-123', '2024-01-15T10:00:00Z');
+      const result = await runs.getRunEvents('run-123', 'evt-1');
       
-      expect(mockApi.get).toHaveBeenCalledWith('/incidents/runs/run-123/events?last_event_ts=2024-01-15T10%3A00%3A00Z');
+      expect(mockApi.get).toHaveBeenCalledWith(
+        '/incidents/runs/run-123/events?last_event_id=evt-1',
+      );
       expect(result).toEqual(mockEvents);
     });
   });

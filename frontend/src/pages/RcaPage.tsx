@@ -98,9 +98,9 @@ export function RcaPage() {
             
             <div className="pt-4 border-t border-border-subtle">
               <span className="text-sm text-content-muted">
-                Confirmed by human: 
+                {t('rca.confirmedByHuman')}: 
                 <span className={`ml-2 px-2 py-0.5 rounded text-xs ${rca.confirmed_by_human ? 'status-success' : 'status-warning'}`}>
-                  {rca.confirmed_by_human ? 'Yes' : 'No'}
+                  {rca.confirmed_by_human ? t('rca.yes') : t('rca.no')}
                 </span>
               </span>
             </div>

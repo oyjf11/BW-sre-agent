@@ -66,7 +66,7 @@ class ApprovalsRepo:
         return (
             self.db.query(IncidentApproval)
             .filter(IncidentApproval.status == "PENDING")
-            .order_by(IncidentApproval.created_at)
+            .order_by(IncidentApproval.created_at.desc())
             .all()
         )
 

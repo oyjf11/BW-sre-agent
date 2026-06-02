@@ -3,6 +3,9 @@ from datetime import datetime
 import time
 import logging
 import inspect
+import json
+import re
+import uuid
 from numbers import Integral
 from tenacity import retry, stop_after_attempt, wait_exponential
 from app.tracing import tracer
@@ -551,6 +554,29 @@ register_tool(
 )
 
 
+SENSITIVE_KEYS = {
+    "password", "secret", "token", "api_key", "access_key",
+    "authorization", "cookie",
+}
+
+
+def _sanitize_for_audit(data: Any) -> Any:
+    if isinstance(data, dict):
+        return {
+            k: "***REDACTED***" if k.lower() in SENSITIVE_KEYS or any(
+                sk in k.lower() for sk in SENSITIVE_KEYS
+            ) else _sanitize_for_audit(v)
+            for k, v in data.items()
+        }
+    if isinstance(data, list):
+        return [_sanitize_for_audit(item) for item in data]
+    if isinstance(data, str):
+        for sk in SENSITIVE_KEYS:
+            if sk in data.lower():
+                return "***REDACTED***"
+    return data
+
+
 class ToolGateway:
     def __init__(self):
         self.handlers = tool_handlers
@@ -558,6 +584,33 @@ class ToolGateway:
         self.audit_log = audit_log
         self.adapter_mode = ADAPTER_MODE
         logger.info(f"ToolGateway initialized with adapter mode: {ADAPTER_MODE}")
+
+    def describe_capability(self, tool_name: str) -> Dict[str, Any]:
+        """Return capability descriptor for a tool without executing it."""
+        if tool_name not in self.handlers:
+            return {"available": False, "adapter_mode": self.adapter_mode, "reason": "tool not registered"}
+
+        real_handler = select_adapter(tool_name)
+        if ADAPTER_MODE == "mock":
+            return {
+                "available": True,
+                "adapter_mode": "mock",
+                "reason": "mock adapter available",
+            }
+
+        has_real_adapter = real_handler is not None
+        if has_real_adapter and ADAPTER_MODE == "real":
+            return {
+                "available": True,
+                "adapter_mode": "real",
+                "reason": "real adapter available",
+            }
+
+        return {
+            "available": False,
+            "adapter_mode": self.adapter_mode,
+            "reason": f"{tool_name} real adapter is not configured",
+        }
 
     async def call_tool(self, request: ToolRequest) -> ToolResponse:
         start_time = time.time()
@@ -701,6 +754,34 @@ class ToolGateway:
         }
         self.audit_log.append(entry)
         logger.info(f"Tool audit: {entry}")
+
+        try:
+            from app.repositories import SessionLocal
+            from app.models.db_models import IncidentToolAudit
+            from app.tools.gateway import _sanitize_for_audit
+
+            db = SessionLocal()
+            try:
+                audit_record = IncidentToolAudit(
+                    audit_id=f"audit_{uuid.uuid4().hex[:8]}",
+                    run_id=request.run_id,
+                    tool_name=request.tool_name,
+                    adapter_mode=adapter_info,
+                    request_json=_sanitize_for_audit(dict(request.params) if request.params else {}),
+                    response_json=_sanitize_for_audit(result if success else None) if success else None,
+                    success=1 if success else 0,
+                    error_message=result.get("error") if not success else None,
+                    latency_ms=latency_ms,
+                )
+                db.add(audit_record)
+                db.commit()
+            except Exception as db_err:
+                db.rollback()
+                logger.warning(f"Failed to persist tool audit: {db_err}")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.warning(f"Failed to persist tool audit (outer): {e}")
 
     def get_audit_log(self, run_id: str = None) -> List[Dict[str, Any]]:
         if run_id:

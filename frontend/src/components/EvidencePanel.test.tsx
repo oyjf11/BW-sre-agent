@@ -3,6 +3,11 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { EvidenceItem } from '../types';
 import { EvidencePanel } from './EvidencePanel';
+import { I18nProvider } from '../i18n';
+
+function renderWithI18n(ui: React.ReactElement) {
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
 
 describe('EvidencePanel', () => {
   const mockEvidence: EvidenceItem[] = [
@@ -29,30 +34,30 @@ describe('EvidencePanel', () => {
   ];
 
   it('renders no evidence message when empty', () => {
-    render(<EvidencePanel evidence={[]} />);
+    renderWithI18n(<EvidencePanel evidence={[]} />);
     expect(screen.getByText('No evidence collected yet')).toBeInTheDocument();
   });
 
   it('renders evidence items', () => {
-    render(<EvidencePanel evidence={mockEvidence} />);
+    renderWithI18n(<EvidencePanel evidence={mockEvidence} />);
     expect(screen.getByText('High error rate detected')).toBeInTheDocument();
     expect(screen.getByText('Recent deployment found')).toBeInTheDocument();
   });
 
   it('groups evidence by category', () => {
-    render(<EvidencePanel evidence={mockEvidence} />);
+    renderWithI18n(<EvidencePanel evidence={mockEvidence} />);
     expect(screen.getByText('logs')).toBeInTheDocument();
     expect(screen.getByText('deployments')).toBeInTheDocument();
   });
 
   it('shows category count', () => {
-    render(<EvidencePanel evidence={mockEvidence} />);
+    renderWithI18n(<EvidencePanel evidence={mockEvidence} />);
     expect(screen.getAllByText('(1)')).toHaveLength(2);
   });
 
   it('expands evidence on click', async () => {
     const user = userEvent.setup();
-    render(<EvidencePanel evidence={mockEvidence} />);
+    renderWithI18n(<EvidencePanel evidence={mockEvidence} />);
     await user.click(screen.getByRole('button', { name: /High error rate detected/i }));
     
     expect(screen.getByText(/Confidence:/)).toBeInTheDocument();
@@ -60,7 +65,7 @@ describe('EvidencePanel', () => {
 
   it('shows evidence scores when expanded', async () => {
     const user = userEvent.setup();
-    render(<EvidencePanel evidence={mockEvidence} />);
+    renderWithI18n(<EvidencePanel evidence={mockEvidence} />);
     await user.click(screen.getByRole('button', { name: /High error rate detected/i }));
 
     const scoreRow = screen.getByText(/Confidence:/).parentElement;

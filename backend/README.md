@@ -69,6 +69,7 @@ TOOL_ADAPTER_MODE=mock
 - 尚未实现：离线评测框架、`execute_action` real 模式、`query_runbook` gateway real 模式、`query_ticket_by_id` / `query_service_metadata` 真实数据源
 
 切换到真实 adapter 前，需要配置对应凭证、白名单和只读权限。
+真实模式下，未配置 real adapter 的工具会 fail-closed，不会回退到 mock 数据。
 
 ## Tracing Provider
 

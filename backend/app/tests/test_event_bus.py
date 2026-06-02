@@ -1,4 +1,6 @@
 import asyncio
+import tempfile
+import os
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -9,15 +11,20 @@ from app.services.event_bus import EventBus, EventType
 
 @pytest.fixture
 def db_session():
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    # Create a run for FK
-    session.add(IncidentRun(run_id="run-1", thread_id="t-1", status=RunStatusEnum.NEW))
-    session.commit()
-    yield session
-    session.close()
+    fd, db_path = tempfile.mkstemp(suffix='.db')
+    os.close(fd)
+    try:
+        engine = create_engine(f"sqlite:///{db_path}")
+        Base.metadata.create_all(bind=engine)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        # Create a run for FK
+        session.add(IncidentRun(run_id="run-1", thread_id="t-1", status=RunStatusEnum.NEW))
+        session.commit()
+        yield session
+        session.close()
+    finally:
+        os.unlink(db_path)
 
 
 class TestEventBus:
@@ -39,24 +46,56 @@ class TestEventBus:
         assert len(stored) == 1
         assert stored[0].node_name == "intake"
 
-    def test_publish_notifies_subscriber(self, db_session):
+    @pytest.mark.asyncio
+    async def test_publish_notifies_subscriber(self, db_session):
         bus = EventBus()
-        queue = bus.subscribe("run-1")
+        iterator = bus.iter_events("run-1")
+        pending = asyncio.create_task(anext(iterator))
+        await asyncio.sleep(0)
 
-        bus.publish(db=db_session, run_id="run-1", event_type=EventType.RUN_CREATED, message="created")
+        bus.publish(
+            db=db_session,
+            run_id="run-1",
+            event_type=EventType.RUN_CREATED,
+            message="created",
+        )
 
-        assert not queue.empty()
-        event = queue.get_nowait()
+        event = await asyncio.wait_for(pending, timeout=1)
         assert event["type"] == "RUN_CREATED"
         assert event["message"] == "created"
+        assert "timestamp" in event
+        await iterator.aclose()
 
-    def test_unsubscribe(self, db_session):
+    @pytest.mark.asyncio
+    async def test_publish_notifies_subscriber_from_worker_thread(self, db_session):
         bus = EventBus()
-        queue = bus.subscribe("run-1")
-        bus.unsubscribe("run-1", queue)
+        iterator = bus.iter_events("run-1")
+        pending = asyncio.create_task(anext(iterator))
+        await asyncio.sleep(0)
+
+        await asyncio.to_thread(
+            bus.publish,
+            db_session,
+            "run-1",
+            EventType.NODE_STARTED,
+            "node_intake",
+            "started",
+        )
+
+        event = await asyncio.wait_for(pending, timeout=1)
+        assert event["node_name"] == "node_intake"
+        assert event["message"] == "started"
+        await iterator.aclose()
+
+    @pytest.mark.asyncio
+    async def test_unsubscribe(self, db_session):
+        bus = EventBus()
+        subscriber = bus.subscribe("run-1")
+        bus.unsubscribe("run-1", subscriber)
 
         bus.publish(db=db_session, run_id="run-1", event_type=EventType.RUN_CREATED)
-        assert queue.empty()
+
+        assert subscriber.queue.empty()
 
     def test_multiple_events(self, db_session):
         bus = EventBus()

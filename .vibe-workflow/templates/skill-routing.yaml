@@ -1,0 +1,141 @@
+# Skill Routing
+# 生成方式: /vibe-route-skill
+# 用途: 根据任务分类精确路由 skill，禁止无理由全量加载
+
+task_id: {{TASK_ID}}
+task_size: {{TASK_SIZE}}
+task_type: {{TASK_TYPE}}
+routed_at: {{TIMESTAMP}}
+
+# ── 路由决策矩阵 ──────────────────────
+
+# skill_name → 路由 + 理由
+# route: required | optional | skip
+
+skills:
+
+  # ── 设计类 ──
+
+  requirements-clarification:
+    route: {{RC_ROUTE}}
+    reason: {{RC_REASON}}
+
+  requirements-design:
+    route: {{RD_ROUTE}}
+    reason: {{RD_REASON}}
+
+  technical-detailed-design:
+    route: {{TD_ROUTE}}
+    reason: {{TD_REASON}}
+
+  frontend-detailed-design:
+    route: {{FD_ROUTE}}
+    reason: {{FD_REASON}}
+
+  backend-detailed-design:
+    route: {{BD_ROUTE}}
+    reason: {{BD_REASON}}
+
+  # ── 实现类 ──
+
+  implementation-slice:
+    route: {{IS_ROUTE}}
+    reason: {{IS_REASON}}
+
+  # ── 测试类 ──
+
+  unit-test-generation:
+    route: {{UT_ROUTE}}
+    reason: {{UT_REASON}}
+
+  integration-test-design:
+    route: {{IT_ROUTE}}
+    reason: {{IT_REASON}}
+
+  playwright-e2e:
+    route: {{PE_ROUTE}}
+    reason: {{PE_REASON}}
+
+  # ── 审查类 ──
+
+  review-and-risk-control:
+    route: {{RR_ROUTE}}
+    reason: {{RR_REASON}}
+
+  # ── 元技能 ──
+
+  stage-gate-workflow:
+    route: {{SG_ROUTE}}
+    reason: {{SG_REASON}}
+
+  knowledge-capture:
+    route: {{KC_ROUTE}}
+    reason: {{KC_REASON}}
+
+# ── 汇总 ─────────────────────────────
+
+required_skills:
+  {{#each REQUIRED}}
+  - {{skill_name}}
+  {{/each}}
+
+optional_skills:
+  {{#each OPTIONAL}}
+  - {{skill_name}}: {{condition}}
+  {{/each}}
+
+skip_skills:
+  {{#each SKIP}}
+  - {{skill_name}}: {{reason}}
+  {{/each}}
+
+# ── 路由规则引擎（供参考，不修改） ──
+
+routing_rules:
+  # 默认路由表
+  default:
+    XS:
+      required: [implementation-slice, review-and-risk-control]
+      optional: [requirements-clarification]
+      skip: [requirements-design, technical-detailed-design, frontend-detailed-design, backend-detailed-design, unit-test-generation, integration-test-design, playwright-e2e, stage-gate-workflow, knowledge-capture]
+      reason: "XS 任务不需要设计和测试技能，只需要实现+审查"
+
+    S:
+      required: [requirements-clarification, requirements-design, implementation-slice, review-and-risk-control]
+      optional: [unit-test-generation]
+      skip: [technical-detailed-design, frontend-detailed-design, backend-detailed-design, integration-test-design, playwright-e2e, stage-gate-workflow, knowledge-capture]
+      reason: "S 任务单模块变更，不需要详细设计/集成测试/E2E"
+
+    M:
+      required: [requirements-clarification, requirements-design, technical-detailed-design, implementation-slice, unit-test-generation, integration-test-design, review-and-risk-control]
+      optional: [frontend-detailed-design, backend-detailed-design, playwright-e2e, knowledge-capture]
+      skip: [stage-gate-workflow]
+      reason: "M 任务跨模块，需要设计+单元+集成；前端/后端设计按需加载"
+
+    L:
+      required: [requirements-clarification, requirements-design, technical-detailed-design, frontend-detailed-design, backend-detailed-design, implementation-slice, unit-test-generation, integration-test-design, playwright-e2e, review-and-risk-control, knowledge-capture]
+      optional: []
+      skip: [stage-gate-workflow]
+      reason: "L 任务全部加载，但 stage-gate-workflow 作为编排元技能不参与路由"
+
+  # 特殊覆盖规则
+  overrides:
+    - condition: "is_bugfix AND size <= S"
+      override:
+        skip: [requirements-design, requirements-clarification]
+        reason: "Bug 修复可跳过需求阶段，直接定位+修复"
+
+    - condition: "is_refactor AND NOT has_ui_change"
+      override:
+        skip: [frontend-detailed-design, playwright-e2e]
+        reason: "无 UI 变更的重构不需要前端设计和 E2E"
+
+    - condition: "NOT has_ui_change"
+      override:
+        skip: [frontend-detailed-design, playwright-e2e]
+        reason: "纯后端变更无前端需求和 E2E"
+
+    - condition: "NOT has_new_api AND NOT has_db_change AND NOT has_ui_change"
+      override:
+        skip: [integration-test-design]
+        reason: "无接口/DB 变更不需要集成测试"

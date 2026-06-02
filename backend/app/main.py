@@ -78,6 +78,10 @@ def _bootstrap_legacy_alembic_state(cfg, command, engine) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.core.config import get_settings
+    from app.i18n import set_language
+    set_language(get_settings().i18n_language)
+    logger.info("i18n language set to %s", get_settings().i18n_language)
     _run_alembic_upgrade()
     try:
         yield

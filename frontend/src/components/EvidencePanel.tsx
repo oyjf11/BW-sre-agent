@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { EvidenceItem } from '../types';
 import { JsonViewer } from './JsonViewer';
+import { useI18n } from '../i18n';
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   logs: (
@@ -30,6 +31,7 @@ interface EvidencePanelProps {
 }
 
 export function EvidencePanel({ evidence }: EvidencePanelProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const grouped = evidence.reduce((acc, item) => {
@@ -61,9 +63,9 @@ export function EvidencePanel({ evidence }: EvidencePanelProps) {
               <div key={item.evidence_id}>
                 <button 
                   onClick={() => toggle(item.evidence_id)}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-surface-tertiary transition-fast cursor-pointer"
+                  className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-tertiary transition-fast cursor-pointer"
                 >
-                  <span className="text-sm text-content-primary truncate">{item.summary}</span>
+                  <span className="min-w-0 break-words text-sm text-content-primary">{item.summary}</span>
                   {expanded[item.evidence_id] ? (
                     <svg className="w-4 h-4 text-content-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -77,8 +79,8 @@ export function EvidencePanel({ evidence }: EvidencePanelProps) {
                 {expanded[item.evidence_id] && (
                     <div className="px-4 pb-4 bg-surface-tertiary">
                     <div className="flex gap-4 text-xs text-content-muted mb-3">
-                      <span>Confidence: {Math.round((item.confidence ?? 0) * 100)}%</span>
-                      <span>Freshness: {Math.round((item.freshness_score ?? 0) * 100)}%</span>
+                  <span>{t('evidence.confidence')}: {Math.round((item.confidence ?? 0) * 100)}%</span>
+                  <span>{t('evidence.freshness')}: {Math.round((item.freshness_score ?? 0) * 100)}%</span>
                     </div>
                     {item.raw_payload && (
                       <JsonViewer data={item.raw_payload} defaultExpanded={false} />
@@ -91,7 +93,7 @@ export function EvidencePanel({ evidence }: EvidencePanelProps) {
         </div>
       ))}
       {evidence.length === 0 && (
-        <p className="text-content-muted text-center py-8">No evidence collected yet</p>
+        <p className="text-content-muted text-center py-8">{t('evidence.noEvidence')}</p>
       )}
     </div>
   );

@@ -1,6 +1,21 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const DEFAULT_TIMEOUT = 30000;
 
+function isZhCN(): boolean {
+  try {
+    return localStorage.getItem('opspilot-locale') === 'zh-CN';
+  } catch {
+    return false;
+  }
+}
+
+function errorMessages(): { unknown: string; failed: string; timeout: string } {
+  if (isZhCN()) {
+    return { unknown: '未知错误', failed: '请求失败', timeout: '请求超时' };
+  }
+  return { unknown: 'Unknown error', failed: 'Request failed', timeout: 'Request timeout' };
+}
+
 class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -31,15 +46,15 @@ async function fetchApi<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new ApiError(response.status, error.detail || 'Request failed');
+      const error = await response.json().catch(() => ({ detail: errorMessages().unknown }));
+      throw new ApiError(response.status, error.detail || errorMessages().failed);
     }
 
     return response.json();
   } catch (err) {
     clearTimeout(timeoutId);
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new ApiError(408, 'Request timeout');
+      throw new ApiError(408, errorMessages().timeout);
     }
     throw err;
   }

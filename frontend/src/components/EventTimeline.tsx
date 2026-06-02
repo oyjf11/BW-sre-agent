@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RunEvent } from '../types';
 import { formatTime } from '../utils/time';
+import { useI18n } from '../i18n';
 
 interface EventTimelineProps {
   events: RunEvent[];
@@ -32,6 +33,7 @@ function getEventBorderClass(level: string): string {
 }
 
 export function EventTimeline({ events, onReconnect }: EventTimelineProps) {
+  const { t } = useI18n();
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [autoScroll, setAutoScroll] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,10 +60,10 @@ export function EventTimeline({ events, onReconnect }: EventTimelineProps) {
             onChange={(e) => setFilter(e.target.value as FilterType)}
             className="input text-sm py-1.5"
           >
-            <option value="ALL">All</option>
-            <option value="ERROR">Error</option>
-            <option value="WARNING">Warning</option>
-            <option value="INFO">Info</option>
+            <option value="ALL">{t('event.filterAll')}</option>
+            <option value="ERROR">{t('event.filterError')}</option>
+            <option value="WARNING">{t('event.filterWarning')}</option>
+            <option value="INFO">{t('event.filterInfo')}</option>
           </select>
         </div>
         <div className="flex items-center gap-4">
@@ -72,7 +74,7 @@ export function EventTimeline({ events, onReconnect }: EventTimelineProps) {
               onChange={(e) => setAutoScroll(e.target.checked)}
               className="rounded border-border bg-surface-secondary text-accent focus:ring-accent"
             />
-            Auto-scroll
+            {t('event.autoScroll')}
           </label>
           {onReconnect && (
             <button onClick={onReconnect} className="p-1.5 hover:bg-surface-tertiary rounded transition-fast cursor-pointer">
@@ -86,7 +88,7 @@ export function EventTimeline({ events, onReconnect }: EventTimelineProps) {
 
       <div ref={containerRef} className="max-h-96 overflow-y-auto space-y-2 pr-2">
         {filteredEvents.length === 0 ? (
-          <p className="text-content-muted text-center py-8">No events</p>
+          <p className="text-content-muted text-center py-8">{t('event.noEvents')}</p>
         ) : (
           filteredEvents.map((event) => (
             <div 
@@ -104,7 +106,7 @@ export function EventTimeline({ events, onReconnect }: EventTimelineProps) {
                   <span className="text-xs text-content-muted">@{event.node_name}</span>
                 )}
               </div>
-              <p className="mt-2 text-sm text-content-primary">{event.message}</p>
+              <p className="mt-2 break-words text-sm text-content-primary">{event.message}</p>
             </div>
           ))
         )}

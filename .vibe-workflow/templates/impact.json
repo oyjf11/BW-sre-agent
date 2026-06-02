@@ -1,0 +1,88 @@
+{
+  "$schema": ".vibe-workflow/templates/impact.schema.json",
+  "task_id": "{{TASK_ID}}",
+  "generated_at": "{{TIMESTAMP}}",
+  "generated_by": "/vibe-impact",
+
+  "summary": {
+    "risk_level": "{{RISK_LEVEL}}",
+    "files_total": {{FILES_TOTAL}},
+    "files_added": {{FILES_ADDED}},
+    "files_modified": {{FILES_MODIFIED}},
+    "files_deleted": {{FILES_DELETED}},
+    "modules_affected": {{MODULES_AFFECTED}},
+    "estimated_review_effort": "{{REVIEW_EFFORT}}"
+  },
+
+  "affected_files": [
+    {
+      "path": "{{FILE_PATH}}",
+      "change_type": "add|modify|delete",
+      "reason": "{{REASON}}",
+      "risk": "high|medium|low",
+      "depends_on": ["{{DEP_PATH}}"],
+      "tested_by": ["{{TEST_PATH}}"]
+    }
+  ],
+
+  "affected_routes": [
+    {
+      "method": "GET|POST|PUT|DELETE|PATCH",
+      "path": "/api/v1/{{ROUTE}}",
+      "change_type": "new|modified|deprecated",
+      "auth_required": true,
+      "breaking": false
+    }
+  ],
+
+  "affected_apis": [
+    {
+      "module": "{{MODULE_NAME}}",
+      "function": "{{FUNCTION_NAME}}",
+      "file": "{{FILE_PATH}}",
+      "change_type": "new_signature|new_behavior|deprecated|removed",
+      "consumers": ["{{CALLER_PATH}}"]
+    }
+  ],
+
+  "affected_tests": [
+    {
+      "path": "{{TEST_FILE_PATH}}",
+      "status": "must_update|may_break|unaffected",
+      "reason": "{{REASON}}"
+    }
+  ],
+
+  "forbidden_touch": [
+    {
+      "path": "{{FILE_PATH}}",
+      "reason": "{{REASON}}"
+    }
+  ],
+
+  "dependency_graph": {
+    "nodes": [
+      {
+        "file": "{{FILE_PATH}}",
+        "imports": ["{{IMPORT_PATH}}"],
+        "imported_by": ["{{IMPORTED_BY_PATH}}"]
+      }
+    ]
+  },
+
+  "risk_analysis": {
+    "regression_risk": "high|medium|low",
+    "security_risk": "high|medium|low",
+    "performance_risk": "high|medium|low",
+    "data_risk": "high|medium|low",
+    "notes": "{{RISK_NOTES}}"
+  },
+
+  "verification_checklist": [
+    {
+      "item": "{{CHECK_ITEM}}",
+      "category": "unit|integration|e2e|manual",
+      "priority": "must|should|nice_to_have"
+    }
+  ]
+}

@@ -89,10 +89,19 @@ class GraphRunner:
         if status_enum is not None:
             update_fields["status"] = status_enum
 
+        halted_node = state.get("halted_at_node")
+        if halted_node is not None:
+            update_fields["halted_at_node"] = halted_node
+
+        terminal_reason = state.get("terminal_reason")
+        if terminal_reason is not None:
+            update_fields["terminal_reason_json"] = terminal_reason
+
         if update_fields:
             self._update_run(run_id, **update_fields)
 
     def _save_checkpoint(self, run_id: str, node_name: str, state: IncidentAgentState):
+        from app.i18n import t, get_node_name
         cp_id = f"cp_{uuid.uuid4().hex[:8]}"
         serialized = serialize_state(state)
         self.checkpoints_repo.save(cp_id, run_id, node_name, serialized)
@@ -100,7 +109,7 @@ class GraphRunner:
             run_id,
             EventType.CHECKPOINT_SAVED,
             node_name=node_name,
-            message=f"Checkpoint saved at {node_name}",
+            message=t("checkpoint_saved", node_name=get_node_name(node_name)),
         )
 
     def _persist_evidence(self, run_id: str, state: IncidentAgentState):
@@ -142,7 +151,6 @@ class GraphRunner:
             return
 
         try:
-            # Handle both Pydantic model and dict (from checkpoint deserialization)
             if hasattr(rca_report, "model_dump"):
                 report_dict = rca_report.model_dump()
             elif isinstance(rca_report, dict):
@@ -152,12 +160,16 @@ class GraphRunner:
                     "run_id": getattr(rca_report, "run_id", run_id),
                     "report_markdown": getattr(rca_report, "report_markdown", ""),
                     "root_cause": getattr(rca_report, "root_cause", ""),
+                    "root_cause_status": getattr(rca_report, "root_cause_status", None),
                     "resolution": getattr(rca_report, "resolution", ""),
                     "prevention_items": getattr(rca_report, "prevention_items", []),
                     "timeline_summary": getattr(rca_report, "timeline_summary", None),
                     "impact_assessment": getattr(rca_report, "impact_assessment", None),
                     "supporting_evidence_ids": getattr(rca_report, "supporting_evidence_ids", []),
                     "executed_action_ids": getattr(rca_report, "executed_action_ids", []),
+                    "candidate_hypotheses": getattr(rca_report, "candidate_hypotheses", []),
+                    "automation_outcome": getattr(rca_report, "automation_outcome", None),
+                    "manual_next_steps": getattr(rca_report, "manual_next_steps", []),
                 }
 
             self.rca_repo.upsert(
@@ -170,6 +182,10 @@ class GraphRunner:
                 impact_assessment=report_dict.get("impact_assessment"),
                 supporting_evidence_ids=report_dict.get("supporting_evidence_ids"),
                 executed_action_ids=report_dict.get("executed_action_ids"),
+                root_cause_status=report_dict.get("root_cause_status"),
+                candidate_hypotheses=report_dict.get("candidate_hypotheses"),
+                automation_outcome=report_dict.get("automation_outcome"),
+                manual_next_steps=report_dict.get("manual_next_steps"),
             )
             logger.info(f"RCA report persisted for run {run_id}")
         except Exception:
@@ -186,8 +202,9 @@ class GraphRunner:
             is_resume: If True, skip RUN_CREATED event and started_at update (for approval resume)
         """
         if not is_resume:
+            from app.i18n import t
             self._update_run(run_id, started_at=datetime.utcnow())
-            self._emit(run_id, EventType.RUN_CREATED, message="Run started")
+            self._emit(run_id, EventType.RUN_CREATED, message=t("run_created"))
         else:
             self._initialize_persisted_evidence_ids(initial_state)
 
@@ -246,11 +263,12 @@ class GraphRunner:
                     self._persist_evidence(run_id, final_state)
                     self._persist_rca(run_id, final_state)
 
+                    from app.i18n import t, get_node_name
                     self._emit(
                         run_id,
                         EventType.NODE_COMPLETED,
                         node_name=node_name,
-                        message=f"Node {node_name} completed",
+                        message=t("node_completed", node_name=get_node_name(node_name), step_count=step),
                         data={"step_count": step},
                     )
                     node_span_id = active_node_spans.pop(node_name, None)
@@ -261,27 +279,41 @@ class GraphRunner:
                     if token is not None:
                         tracer.reset_step_context(token)
 
-            # Determine final status
+            # Determine final status and whether this is a pause or terminal
             status = final_state.get("status", RunStatus.COMPLETED)
             status_enum = self._coerce_run_status(status) or RunStatusEnum.COMPLETED
+            halted_node = final_state.get("halted_at_node")
+            terminal_reason = final_state.get("terminal_reason")
 
-            self._update_run(
-                run_id,
-                status=status_enum,
-                completed_at=datetime.utcnow(),
-                current_node=None,
-            )
-
-            status_value = status_enum.value
-            if status_enum in (RunStatusEnum.COMPLETED, RunStatusEnum.WAITING_HUMAN):
+            if status_enum == RunStatusEnum.WAITING_HUMAN:
+                self._update_run(
+                    run_id,
+                    status=status_enum,
+                    current_node=None,
+                    halted_at_node=halted_node,
+                    terminal_reason_json=terminal_reason,
+                )
+                from app.i18n import t, get_status_name
+                self._emit(
+                    run_id,
+                    EventType.RUN_PAUSED,
+                    message=t("run_paused", status=get_status_name(status_enum.value)),
+                )
+            else:
+                self._update_run(
+                    run_id,
+                    status=status_enum,
+                    completed_at=datetime.utcnow(),
+                    current_node=None,
+                    halted_at_node=halted_node,
+                    terminal_reason_json=terminal_reason,
+                )
+                from app.i18n import t, get_status_name
+                status_value = status_enum.value
                 self._emit(
                     run_id,
                     EventType.RUN_COMPLETED,
-                    message=f"Run finished with status {status_value}",
-                )
-            else:
-                self._emit(
-                    run_id, EventType.RUN_COMPLETED, message=f"Run ended with status {status_value}"
+                    message=t("run_completed", status=get_status_name(status_value)),
                 )
             tracer.end_span(graph_span_id, status="ok")
 
@@ -291,19 +323,19 @@ class GraphRunner:
             logger.exception(f"Graph execution failed for run {run_id}")
             error_msg = str(exc)
 
-            # NODE_FAILED is emitted by the node wrapper (_wrap_with_events) before
-            # the exception propagates here — no need to re-emit it for the last node.
             self._update_run(
                 run_id,
                 status=RunStatusEnum.FAILED,
                 last_error_code="GRAPH_EXECUTION_ERROR",
                 last_error_message=error_msg[:1000],
                 completed_at=datetime.utcnow(),
+                halted_at_node=final_state.get("halted_at_node") if 'final_state' in dir() else None,
             )
+            from app.i18n import t
             self._emit(
                 run_id,
                 EventType.RUN_FAILED,
-                message=f"Run failed: {error_msg[:200]}",
+                message=t("run_failed", error=error_msg[:200]),
                 level="ERROR",
             )
             for node_name, node_span_id in list(active_node_spans.items()):

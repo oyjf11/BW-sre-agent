@@ -171,7 +171,7 @@ curl -s http://127.0.0.1:8000/incidents/runs/{run_id}/trace | python3 -m json.to
 
 ## 当前进度
 
-详见 ACTION_PLAN.md（唯一项目进度源）。Phase 1-7 已完成；LangSmith 真实控制台验证已通过，Langfuse 代码已就绪待真实环境验收。下一步是 Phase 8 离线评测，Phase 9/10 为后续增强。
+详见 ACTION_PLAN.md（唯一项目进度源）。Phase 1-7 已完成；LangSmith 真实控制台验证已通过，Langfuse 代码已就绪待真实环境验收；Phase 8 启动前 real adapter 收口已完成。下一步是 Phase 8 离线评测，Phase 9/10 为后续增强。
 
 ## 编码规范
 

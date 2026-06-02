@@ -1,6 +1,6 @@
 import inspect
 from langgraph.graph import StateGraph, END
-from app.graph.state import IncidentAgentState
+from app.graph.state import IncidentAgentState, RunStatus
 from app.graph.nodes import (
     intake_node,
     triage_node,
@@ -30,7 +30,10 @@ def _wrap_with_events(node_name: str, fn):
     the wrapper is a transparent pass-through.
     """
     from app.graph.context import get_node_event_hook
+    from app.i18n import t, get_node_name
     from app.services.event_bus import EventType
+
+    label = get_node_name(node_name)
 
     if inspect.iscoroutinefunction(fn):
 
@@ -40,7 +43,7 @@ def _wrap_with_events(node_name: str, fn):
                 hook(
                     EventType.NODE_STARTED,
                     node_name,
-                    message=f"Node {node_name} started",
+                    message=t("node_started", node_name=label),
                     level="INFO",
                 )
             try:
@@ -50,7 +53,7 @@ def _wrap_with_events(node_name: str, fn):
                     hook(
                         EventType.NODE_FAILED,
                         node_name,
-                        message=f"Node {node_name} failed: {exc}",
+                        message=t("node_failed", node_name=label, error=str(exc)[:200]),
                         level="ERROR",
                         data={"error": str(exc)[:500]},
                     )
@@ -66,7 +69,7 @@ def _wrap_with_events(node_name: str, fn):
                 hook(
                     EventType.NODE_STARTED,
                     node_name,
-                    message=f"Node {node_name} started",
+                    message=t("node_started", node_name=label),
                     level="INFO",
                 )
             try:
@@ -76,7 +79,7 @@ def _wrap_with_events(node_name: str, fn):
                     hook(
                         EventType.NODE_FAILED,
                         node_name,
-                        message=f"Node {node_name} failed: {exc}",
+                        message=t("node_failed", node_name=label, error=str(exc)[:200]),
                         level="ERROR",
                         data={"error": str(exc)[:500]},
                     )
@@ -111,6 +114,9 @@ def _route_dispatcher(state: IncidentAgentState) -> str:
 
 def _route_after_critic(state: IncidentAgentState) -> str:
     decision = state.get("critic_decision", "PASS")
+    status = state.get("status")
+    if status == "NEEDS_HUMAN" or status == RunStatus.NEEDS_HUMAN:
+        return "node_rca"
     if decision == "NEED_MORE_EVIDENCE":
         return "node_evidence_fanout"
     if decision in ("REPLAN", "CONTRADICTION"):
@@ -118,8 +124,18 @@ def _route_after_critic(state: IncidentAgentState) -> str:
     return "node_remediation"
 
 
+def _route_after_remediation(state: IncidentAgentState) -> str:
+    status = state.get("status")
+    if status == "NEEDS_HUMAN" or status == RunStatus.NEEDS_HUMAN:
+        return "node_rca"
+    return "node_risk_gate"
+
+
 def _route_after_risk_gate(state: IncidentAgentState) -> str:
     decision = state.get("risk_decision", "LOW_ONLY")
+    status = state.get("status")
+    if status == "NEEDS_HUMAN" or status == RunStatus.NEEDS_HUMAN:
+        return "node_rca"
     if decision == "BLOCKED":
         return "node_rca"  # Skip execution, go straight to RCA for failed run
     if decision == "NEEDS_APPROVAL":
@@ -216,10 +232,18 @@ def create_incident_graph() -> StateGraph:
             "node_remediation": "node_remediation",
             "node_evidence_fanout": "node_evidence_fanout",
             "node_planner": "node_planner",
+            "node_rca": "node_rca",
         },
     )
 
-    graph.add_edge("node_remediation", "node_risk_gate")
+    graph.add_conditional_edges(
+        "node_remediation",
+        _route_after_remediation,
+        {
+            "node_rca": "node_rca",
+            "node_risk_gate": "node_risk_gate",
+        },
+    )
     graph.add_conditional_edges(
         "node_risk_gate",
         _route_after_risk_gate,

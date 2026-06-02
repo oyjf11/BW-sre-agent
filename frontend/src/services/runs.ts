@@ -9,6 +9,7 @@ import type {
   EvidenceItem,
   RunDiagnosis,
   RunRemediation,
+  EvidenceCollectionResults,
 } from '../types';
 
 interface CreateRunByTicket {
@@ -45,9 +46,9 @@ export const runs = {
   listRuns: (limit = 100, offset = 0) =>
     api.get<RunSummary[]>(`/incidents/runs?limit=${limit}&offset=${offset}`),
 
-  getRunEvents: (runId: string, lastEventTs?: string) => {
-    const url = lastEventTs
-      ? `/incidents/runs/${runId}/events?last_event_ts=${encodeURIComponent(lastEventTs)}`
+  getRunEvents: (runId: string, lastEventId?: string) => {
+    const url = lastEventId
+      ? `/incidents/runs/${runId}/events?last_event_id=${encodeURIComponent(lastEventId)}`
       : `/incidents/runs/${runId}/events`;
     return api.get<RunEvent[]>(url);
   },
@@ -57,6 +58,9 @@ export const runs = {
 
   getRunEvidence: (runId: string) =>
     api.get<EvidenceItem[]>(`/incidents/runs/${runId}/evidence`),
+
+  getEvidenceCollectionResults: (runId: string) =>
+    api.get<EvidenceCollectionResults>(`/incidents/runs/${runId}/evidence/collection-results`),
 
   getRunActions: (runId: string) =>
     api.get<any[]>(`/incidents/runs/${runId}/actions`),

@@ -1,6 +1,6 @@
 # 当前工程缺口
 
-更新时间：2026-05-31
+更新时间：2026-06-01
 
 本文只记录当前仍需要处理的问题。Phase / Task 完成状态以根目录 `ACTION_PLAN.md` 为唯一事实源；历史审查和已完成修复已移动到 `backend/docs/archive/2026-03/`。
 
@@ -65,10 +65,11 @@
 
 ## 谨慎项
 
-- 各 real adapter 的代码路径已接入，但真实环境联调仍依赖外部凭证、白名单、region、bucket、K8s namespace 白名单和线上数据可用性。
-- `query_ticket_by_id`、`query_service_metadata` 的真实数据源尚未单独接入；当前重点仍是手工工单 / 告警事件入口与已接入的证据源。
+- `TOOL_ADAPTER_MODE=real` 已全局 fail-closed：未配置真实 adapter 的工具不会回退 mock。真实环境联调仍依赖外部凭证、白名单、region、bucket、K8s namespace 白名单和线上数据可用性。
+- `query_ticket_by_id`、`query_service_metadata` 的真实数据源尚未单独接入；真实模式下 ticket ID 拉取入口和依赖 `service_exists` 的执行预检会明确失败。当前重点仍是手工工单 / 告警事件入口与已接入的证据源。
 - `query_runbook` 的 gateway real 模式仍 fail-closed；当前图内历史知识检索通过 `backend/app/rag/` 完成。
 - `execute_action` 的 real 模式仍 fail-closed；真实执行动作需要另行设计审批、幂等、审计和非生产白名单策略。
+- RAG 默认 `RAG_ENABLED=false`；需要检索历史 RCA / Runbook 的环境必须显式开启并完成索引初始化。
 
 ## 文档维护规则
 

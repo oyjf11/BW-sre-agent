@@ -1,4 +1,9 @@
 from typing import Dict, Any, List
+from datetime import datetime
+import uuid
+import asyncio
+import logging
+
 from app.graph.state import IncidentAgentState, RunStatus
 from app.models.incident import IncidentTicket
 from app.models.triage import TriageResult
@@ -9,10 +14,11 @@ from app.models.approval import ApprovalRequest
 from app.models.rca import RcaReport
 from app.tools import gateway, ToolRequest
 from app.llm_client import llm_client
-from datetime import datetime
-import uuid
-import asyncio
-import logging
+from app.graph.evidence_utils import (
+    EvidenceCollectionResult,
+    classify_result,
+    compute_quality_from_results,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +61,8 @@ def intake_node(state: IncidentAgentState) -> IncidentAgentState:
     state["step_count"] = state.get("step_count", 0) + 1
     state["evidence_items"] = []
     state["root_cause_candidates"] = []
+    state["evidence_collection_results"] = []
+    state["failed_evidence_tools"] = []
 
     return state
 
@@ -346,7 +354,6 @@ async def evidence_fanout_node(state: IncidentAgentState) -> IncidentAgentState:
 
     state["status"] = RunStatus.GATHERING_EVIDENCE
 
-    # Build task list from investigation_plan or fallback to legacy plan
     tasks_to_run = []
     if investigation_plan:
         for task in investigation_plan.tasks:
@@ -368,42 +375,75 @@ async def evidence_fanout_node(state: IncidentAgentState) -> IncidentAgentState:
         try:
             req = ToolRequest(tool_name=tool_name, params=params, run_id=run_id)
             result = await gateway.call_tool(req)
-            if result.success:
-                return EvidenceItem(
-                    evidence_id=f"ev_{uuid.uuid4().hex[:8]}",
-                    tool_name=tool_name,
-                    category=category,
-                    source_ref=f"{category}-{run_id}",
-                    summary=f"Retrieved {category} data for {params.get('service', 'unknown')}",
-                    raw_payload=result.result,
-                    confidence=0.8,
-                    freshness_score=0.9,
-                    completeness_score=0.7,
+            collected_at = datetime.utcnow().isoformat()
+            latency = result.latency_ms
+
+            if result.success and result.result:
+                classification = classify_result(
+                    tool_name, category, True, result.result, None, latency, collected_at
                 )
+                if classification.status == "SUCCESS_USABLE":
+                    evidence = EvidenceItem(
+                        evidence_id=f"ev_{uuid.uuid4().hex[:8]}",
+                        tool_name=tool_name,
+                        category=category,
+                        source_ref=f"{category}-{run_id}",
+                        summary=classification.summary,
+                        raw_payload=result.result,
+                        confidence=0.8,
+                        freshness_score=0.9,
+                        completeness_score=0.7,
+                    )
+                    return (evidence, classification)
+                else:
+                    return (None, classification)
             else:
+                classification = classify_result(
+                    tool_name,
+                    category,
+                    False,
+                    result.result if result else None,
+                    result.error if result else "no response",
+                    result.latency_ms if result else 0,
+                    datetime.utcnow().isoformat(),
+                )
                 if not degrade:
-                    raise RuntimeError(f"Non-degradable task {tool_name} failed: {result.error}")
-                return None
+                    raise RuntimeError(
+                        f"Non-degradable task {tool_name} failed: {classification.error_summary}"
+                    )
+                return (None, classification)
         except Exception as e:
             if not degrade:
                 raise
-            import logging
+            classification = EvidenceCollectionResult(
+                status="FAILED_RUNTIME",
+                tool_name=tool_name,
+                category=category,
+                error_summary=str(e),
+                latency_ms=0,
+                collected_at=datetime.utcnow().isoformat(),
+            )
+            return (None, classification)
 
-            logging.getLogger(__name__).warning(f"Evidence collection failed for {tool_name}: {e}")
-            return None
-
-    # Run all tasks concurrently
     results = await asyncio.gather(
         *[_collect_one(t, p, c, d) for t, p, c, d in tasks_to_run],
         return_exceptions=True,
     )
 
     evidence_items = state.get("evidence_items", [])
+    collection_results: List[Dict[str, Any]] = state.get("evidence_collection_results", [])
+
     for r in results:
-        if isinstance(r, EvidenceItem):
-            evidence_items.append(r)
+        if isinstance(r, Exception):
+            continue
+        if isinstance(r, tuple) and len(r) == 2:
+            evidence, result_obj = r
+            if evidence is not None:
+                evidence_items.append(evidence)
+            collection_results.append(result_obj.model_dump())
 
     state["evidence_items"] = evidence_items
+    state["evidence_collection_results"] = collection_results
     state["step_count"] = state.get("step_count", 0) + 1
 
     return state
@@ -536,6 +576,14 @@ async def runbook_node(state: IncidentAgentState) -> IncidentAgentState:
 
 def evidence_aggregate_node(state: IncidentAgentState) -> IncidentAgentState:
     items = state.get("evidence_items", [])
+    collection_results_raw = state.get("evidence_collection_results", [])
+
+    collection_results = [
+        EvidenceCollectionResult(**r) if isinstance(r, dict) else r
+        for r in collection_results_raw
+    ]
+
+    quality_score, missing, failed_tools = compute_quality_from_results(collection_results)
 
     categories = {}
     total_confidence = 0.0
@@ -544,24 +592,16 @@ def evidence_aggregate_node(state: IncidentAgentState) -> IncidentAgentState:
         categories[cat] = categories.get(cat, 0) + 1
         total_confidence += item.confidence if hasattr(item, "confidence") else 0.5
 
-    summary = f"Collected {len(items)} evidence items. "
+    summary = f"Collected {len(items)} usable evidence items from {len(collection_results)} tasks. "
     if categories:
         summary += "Categories: " + ", ".join(f"{k}: {v}" for k, v in categories.items())
+    if failed_tools:
+        summary += f" Failed tools: {', '.join(failed_tools)}."
 
-    # Quality score: based on coverage and confidence
-    expected_categories = {"logs", "metrics", "deployments", "runbook"}
-    present = set(categories.keys())
-    coverage = (
-        len(present & expected_categories) / len(expected_categories) if expected_categories else 0
-    )
-    avg_confidence = total_confidence / len(items) if items else 0
-    quality_score = round((coverage * 0.6 + avg_confidence * 0.4), 2)
+    if not items:
+        quality_score = 0.0
 
-    missing = sorted(expected_categories - present)
-
-    # Detect contradictions in evidence
     contradiction_signals = []
-    # Simple heuristic: if we have both "healthy" and "error" signals, flag
     summaries_text = " ".join(
         (item.summary if hasattr(item, "summary") else item.get("summary", "")) for item in items
     ).lower()
@@ -574,6 +614,7 @@ def evidence_aggregate_node(state: IncidentAgentState) -> IncidentAgentState:
     state["evidence_summary"] = summary
     state["evidence_quality_score"] = quality_score
     state["missing_evidence_categories"] = missing
+    state["failed_evidence_tools"] = failed_tools
     state["step_count"] = state.get("step_count", 0) + 1
 
     return state
@@ -721,23 +762,32 @@ Respond in JSON format only."""
 
 def critic_node(state: IncidentAgentState) -> IncidentAgentState:
     """Critic with 4-way routing: PASS / NEED_MORE_EVIDENCE / REPLAN / CONTRADICTION.
-    Includes loop guard: max 2 loops, then force PASS with degraded confidence."""
+    Includes loop guard: max 2 loops, then NEEDS_HUMAN with terminal_reason."""
     items = state.get("evidence_items", [])
     candidates = state.get("root_cause_candidates", [])
     quality_score = state.get("evidence_quality_score") or 0.5
     missing = state.get("missing_evidence_categories") or []
+    failed_tools = state.get("failed_evidence_tools") or []
 
-    # Loop guard
     loop_count = state.get("loop_count") or 0
     max_loop = state.get("max_loop_count") or 2
 
     if loop_count >= max_loop:
-        # Force PASS but with degraded confidence
-        state["critic_decision"] = "PASS"
+        state["status"] = RunStatus.NEEDS_HUMAN
+        state["halted_at_node"] = "node_critic"
+        state["terminal_reason"] = {
+            "code": "EVIDENCE_LOOP_EXHAUSTED",
+            "stage": "critic",
+            "message": (
+                f"Evidence loop exhausted after {loop_count} rounds. "
+                f"Quality: {quality_score}, missing: {missing}, failed tools: {failed_tools}"
+            ),
+            "missing_evidence_categories": missing,
+            "failed_tools": failed_tools,
+        }
         state["user_context"] = state.get("user_context") or {}
         state["user_context"]["loop_guard_triggered"] = True
         state["user_context"]["requires_immediate_human"] = True
-        # Degrade confidence on all candidates
         for c in candidates:
             if hasattr(c, "confidence"):
                 c.confidence = min(c.confidence, 0.5)
@@ -745,7 +795,6 @@ def critic_node(state: IncidentAgentState) -> IncidentAgentState:
         state["step_count"] = state.get("step_count", 0) + 1
         return state
 
-    # Check for contradictions
     has_contradiction = False
     for candidate in candidates:
         contradicting = (
@@ -780,8 +829,15 @@ def remediation_node(state: IncidentAgentState) -> IncidentAgentState:
     env = ticket.env if hasattr(ticket, "env") else ticket.get("env", "prod")
     evidence_items = state.get("evidence_items", [])
 
+    valid_evidence_ids = [
+        ev.evidence_id if hasattr(ev, "evidence_id") else ev.get("evidence_id", "")
+        for ev in evidence_items
+        if ev is not None
+    ]
+    valid_evidence_ids = [eid for eid in valid_evidence_ids if eid]
+
     actions = []
-    if candidates:
+    if candidates and valid_evidence_ids:
         top_candidate = candidates[0]
         has_deployment_signal = (
             "deployment" in top_candidate.hypothesis.lower()
@@ -795,6 +851,7 @@ def remediation_node(state: IncidentAgentState) -> IncidentAgentState:
                 params={"version": "previous"},
                 risk_level="HIGH",
                 requires_approval=True,
+                supporting_evidence_ids=valid_evidence_ids,
             )
             actions.append(action)
         else:
@@ -805,8 +862,22 @@ def remediation_node(state: IncidentAgentState) -> IncidentAgentState:
                 params={},
                 risk_level="LOW",
                 requires_approval=False,
+                supporting_evidence_ids=valid_evidence_ids,
             )
             actions.append(action)
+
+    if not actions:
+        state["status"] = RunStatus.NEEDS_HUMAN
+        state["halted_at_node"] = "node_remediation"
+        state["terminal_reason"] = {
+            "code": "CANNOT_GENERATE_TRUSTED_ACTIONS",
+            "stage": "remediation",
+            "message": "No valid evidence to support any automated remediation action",
+            "missing_evidence_categories": state.get("missing_evidence_categories", []),
+            "failed_tools": state.get("failed_evidence_tools", []),
+        }
+        state["step_count"] = state.get("step_count", 0) + 1
+        return state
 
     plan = RemediationPlan(
         summary=f"Proposed {len(actions)} remediation actions",
@@ -823,8 +894,9 @@ def remediation_node(state: IncidentAgentState) -> IncidentAgentState:
 
 
 def risk_gate_node(state: IncidentAgentState) -> IncidentAgentState:
-    """Risk decision: LOW_ONLY / NEEDS_APPROVAL / BLOCKED.
-    Combines: action risk + severity + env + triage human-priority + diagnosis confidence + loop guard."""
+    """Risk decision: LOW_ONLY / NEEDS_APPROVAL / BLOCKED / NEEDS_HUMAN.
+    Combines: action risk + severity + env + triage human-priority + diagnosis confidence
+    + loop guard + capability preflight."""
     plan = state.get("remediation_plan")
     if not plan:
         state["risk_decision"] = "LOW_ONLY"
@@ -844,12 +916,10 @@ def risk_gate_node(state: IncidentAgentState) -> IncidentAgentState:
         env = ticket.env if hasattr(ticket, "env") else ticket.get("env", "")
         severity = ticket.severity if hasattr(ticket, "severity") else ticket.get("severity", "P3")
 
-    # Check if loop guard triggered (low confidence)
     user_ctx = state.get("user_context") or {}
     loop_guard_triggered = user_ctx.get("loop_guard_triggered", False)
     requires_human_from_triage = user_ctx.get("requires_immediate_human", False)
 
-    # Diagnosis confidence
     candidates = state.get("root_cause_candidates", [])
     top_confidence = (
         candidates[0].confidence if candidates and hasattr(candidates[0], "confidence") else 0.5
@@ -876,7 +946,31 @@ def risk_gate_node(state: IncidentAgentState) -> IncidentAgentState:
         if (a.risk_level if hasattr(a, "risk_level") else a.get("risk_level", "LOW")) == "CRITICAL"
     ]
 
-    # BLOCKED: critical actions in prod with low confidence or loop guard
+    # Capability preflight: check if execute_action is available
+    action_types = [
+        a.action_type if hasattr(a, "action_type") else a.get("action_type", "")
+        for a in actions
+    ]
+    unavailable_actions = []
+    for at in action_types:
+        if at and not _can_execute_action(action_type=at, env=env, service=(
+            actions[0].service if hasattr(actions[0], "service") else actions[0].get("service", "")
+        )):
+            unavailable_actions.append(at)
+
+    if unavailable_actions:
+        state["status"] = RunStatus.NEEDS_HUMAN
+        state["halted_at_node"] = "node_risk_gate"
+        state["terminal_reason"] = {
+            "code": "AUTOMATION_CAPABILITY_UNAVAILABLE",
+            "stage": "risk_gate",
+            "message": f"execute_action real adapter is not configured for: {', '.join(unavailable_actions)}",
+            "failed_tools": ["execute_action"],
+            "missing_evidence_categories": state.get("missing_evidence_categories", []),
+        }
+        state["step_count"] = state.get("step_count", 0) + 1
+        return state
+
     if critical_actions and env == "prod" and (top_confidence < 0.5 or loop_guard_triggered):
         state["risk_decision"] = "BLOCKED"
         state["status"] = RunStatus.FAILED
@@ -894,6 +988,14 @@ def risk_gate_node(state: IncidentAgentState) -> IncidentAgentState:
 
     state["step_count"] = state.get("step_count", 0) + 1
     return state
+
+
+def _can_execute_action(action_type: str, env: str, service: str) -> bool:
+    try:
+        descriptor = gateway.describe_capability("execute_action")
+        return descriptor.get("available", False)
+    except Exception:
+        return False
 
 
 def approval_interrupt_node(state: IncidentAgentState) -> IncidentAgentState:
@@ -1356,6 +1458,8 @@ def rca_node(state: IncidentAgentState) -> IncidentAgentState:
     execution_results = state.get("execution_results", [])
     verify_decision = state.get("verify_decision")
     evidence_items = state.get("evidence_items", [])
+    current_status = state.get("status")
+    terminal_reason = state.get("terminal_reason")
 
     ticket_title = ticket.title if hasattr(ticket, "title") else ticket.get("title", "unknown")
     ticket_desc = (
@@ -1365,25 +1469,36 @@ def rca_node(state: IncidentAgentState) -> IncidentAgentState:
     env = ticket.env if hasattr(ticket, "env") else ticket.get("env", "unknown")
     severity = ticket.severity if hasattr(ticket, "severity") else ticket.get("severity", "P3")
 
-    # Determine if this is a success or failure RCA
-    is_failure = state.get("status") == RunStatus.FAILED or verify_decision in (
+    is_needs_human = current_status == RunStatus.NEEDS_HUMAN
+    is_failure = current_status == RunStatus.FAILED or verify_decision in (
         "FATAL_FAILURE",
         "RETRYABLE_FAILURE",
     )
-    run_outcome = "FAILED" if is_failure else "SUCCESS"
+    run_outcome = (
+        "NEEDS_HUMAN" if is_needs_human else ("FAILED" if is_failure else "SUCCESS")
+    )
 
     root_cause = "Unknown"
+    root_cause_status = "UNKNOWN"
     confidence = 0.0
     if candidates:
         top = candidates[0]
         root_cause = top.hypothesis if hasattr(top, "hypothesis") else top.get("hypothesis")
         confidence = top.confidence if hasattr(top, "confidence") else top.get("confidence", 0.5)
+        if is_needs_human:
+            root_cause_status = "UNKNOWN"
+        elif confidence >= 0.7:
+            root_cause_status = "CONFIRMED"
+        else:
+            root_cause_status = "SUSPECTED"
 
     all_candidates = []
+    candidate_hypotheses = []
     for c in candidates:
         hyp = c.hypothesis if hasattr(c, "hypothesis") else c.get("hypothesis")
         conf = c.confidence if hasattr(c, "confidence") else c.get("confidence", 0.5)
         all_candidates.append(f"- {hyp} (confidence: {conf})")
+        candidate_hypotheses.append({"hypothesis": hyp, "confidence": conf})
     candidates_text = "\n".join(all_candidates) if all_candidates else "No candidates"
 
     remediation_text = ""
@@ -1397,9 +1512,10 @@ def rca_node(state: IncidentAgentState) -> IncidentAgentState:
             at = a.action_type if hasattr(a, "action_type") else a.get("action_type", "unknown")
             remediation_text += f"- {at}\n"
 
-    # Execution results summary
     execution_text = ""
-    for r in execution_results or action_results:
+    for r in (execution_results or []) + (action_results or []):
+        if r is None:
+            continue
         at = r.get("action_type", "unknown") if isinstance(r, dict) else "unknown"
         success = r.get("success", False) if isinstance(r, dict) else False
         err = r.get("error", "") if isinstance(r, dict) else ""
@@ -1408,7 +1524,6 @@ def rca_node(state: IncidentAgentState) -> IncidentAgentState:
             execution_text += f" ({err})"
         execution_text += "\n"
 
-    # Collect evidence and action IDs
     supporting_evidence_ids = []
     for ev in evidence_items:
         eid = ev.evidence_id if hasattr(ev, "evidence_id") else ev.get("evidence_id", "")
@@ -1416,10 +1531,94 @@ def rca_node(state: IncidentAgentState) -> IncidentAgentState:
             supporting_evidence_ids.append(eid)
 
     executed_action_ids = []
-    for r in execution_results:
+    for r in (execution_results or []):
+        if r is None:
+            continue
         aid = r.get("action_id", "") if isinstance(r, dict) else ""
         if aid:
             executed_action_ids.append(aid)
+
+    automation_outcome = {
+        "outcome": run_outcome,
+        "step_count": state.get("step_count", 0),
+        "loop_count": state.get("loop_count", 0),
+    }
+    if terminal_reason:
+        automation_outcome["terminal_reason"] = terminal_reason
+
+    manual_next_steps: List[str] = []
+
+    if is_needs_human:
+        failed_tools = state.get("failed_evidence_tools") or []
+        missing_cats = state.get("missing_evidence_categories") or []
+        manual_next_steps = [
+            f"Review the following failed tool calls: {', '.join(failed_tools)}"
+            if failed_tools
+            else "Investigate why evidence collection returned empty results",
+            f"Manually collect data for missing categories: {', '.join(missing_cats)}"
+            if missing_cats
+            else "",
+            "Perform manual root cause investigation",
+            "Re-assess whether automated remediation is feasible",
+            f"Terminal reason: {terminal_reason.get('code', 'unknown') if terminal_reason else 'loop exhaustion'} — {terminal_reason.get('message', '') if terminal_reason else ''}",
+        ]
+        manual_next_steps = [s for s in manual_next_steps if s]
+
+        degraded_rca_markdown = f"""# RCA Report [NEEDS_HUMAN]
+
+## Status
+**Automation could not complete this incident.** Root cause has NOT been confirmed.
+
+## Root Cause Status
+**UNKNOWN** — The automated workflow was unable to gather sufficient evidence to determine
+the root cause. The hypotheses below are candidate explanations, NOT confirmed findings.
+
+## Incident Summary
+- **Title**: {ticket_title}
+- **Service**: {service}
+- **Environment**: {env}
+- **Severity**: {severity}
+- **Outcome**: {run_outcome}
+
+## Candidate Hypotheses (UNCONFIRMED)
+{candidates_text if candidates_text else "No hypotheses generated — insufficient evidence."}
+
+## Automation Stop Reason
+{terminal_reason.get('code', 'EVIDENCE_LOOP_EXHAUSTED') if terminal_reason else 'EVIDENCE_LOOP_EXHAUSTED'}
+{terminal_reason.get('message', 'Evidence collection loop exhausted without sufficient results') if terminal_reason else ''}
+
+## Evidence Quality
+- Quality score: {state.get('evidence_quality_score', 0)}
+- Missing categories: {state.get('missing_evidence_categories', [])}
+- Failed tools: {state.get('failed_evidence_tools', [])}
+
+## Manual Next Steps
+"""
+        for step in manual_next_steps:
+            degraded_rca_markdown += f"- {step}\n"
+
+        report = RcaReport(
+            run_id=state.get("run_id", "unknown"),
+            report_markdown=degraded_rca_markdown,
+            root_cause=root_cause if root_cause != "Unknown" else "Root cause not confirmed",
+            root_cause_status=root_cause_status,
+            resolution="Automated resolution not possible — requires manual intervention",
+            prevention_items=["Improve evidence collection reliability"],
+            timeline_summary="Automated workflow stopped — manual investigation needed",
+            impact_assessment="Impact could not be fully assessed — manual review required",
+            supporting_evidence_ids=supporting_evidence_ids,
+            executed_action_ids=executed_action_ids,
+            candidate_hypotheses=candidate_hypotheses,
+            automation_outcome=automation_outcome,
+            manual_next_steps=manual_next_steps,
+        )
+
+        state["rca_report"] = report
+        state["final_outcome"] = run_outcome
+        if current_status != RunStatus.FAILED:
+            state["status"] = RunStatus.NEEDS_HUMAN
+        state["step_count"] = state.get("step_count", 0) + 1
+        return state
 
     rca_prompt = f"""Generate a comprehensive Root Cause Analysis (RCA) report.
 
@@ -1500,6 +1699,9 @@ Respond in JSON format only."""
 ## Root Cause
 **{final_root_cause}** (confidence: {confidence:.0%})
 
+## Root Cause Status
+{root_cause_status}
+
 ## Incident Summary
 - **Title**: {ticket_title}
 - **Service**: {service}
@@ -1531,12 +1733,16 @@ Respond in JSON format only."""
         run_id=state.get("run_id", "unknown"),
         report_markdown=markdown_report,
         root_cause=final_root_cause,
+        root_cause_status=root_cause_status,
         resolution=final_resolution,
         prevention_items=final_prevention,
         timeline_summary=timeline_summary or None,
         impact_assessment=impact_assessment or None,
         supporting_evidence_ids=supporting_evidence_ids,
         executed_action_ids=executed_action_ids,
+        candidate_hypotheses=candidate_hypotheses,
+        automation_outcome=automation_outcome,
+        manual_next_steps=manual_next_steps,
     )
 
     archive_ref = ""
@@ -1600,7 +1806,7 @@ Respond in JSON format only."""
 
     state["rca_report"] = report
     state["final_outcome"] = run_outcome
-    if state.get("status") not in {RunStatus.FAILED, RunStatus.WAITING_HUMAN}:
+    if current_status not in {RunStatus.FAILED, RunStatus.NEEDS_HUMAN, RunStatus.WAITING_HUMAN}:
         state["status"] = RunStatus.COMPLETED
     state["step_count"] = state.get("step_count", 0) + 1
 

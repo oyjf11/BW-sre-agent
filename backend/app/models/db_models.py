@@ -15,6 +15,7 @@ class RunStatusEnum(str, enum.Enum):
     DIAGNOSED = "DIAGNOSED"
     PENDING_APPROVAL = "PENDING_APPROVAL"
     WAITING_HUMAN = "WAITING_HUMAN"
+    NEEDS_HUMAN = "NEEDS_HUMAN"
     EXECUTING = "EXECUTING"
     VERIFYING = "VERIFYING"
     COMPLETED = "COMPLETED"
@@ -32,6 +33,8 @@ class IncidentRun(Base):
     service = Column(String, nullable=True)
     env = Column(String, nullable=True)
     current_node = Column(String, nullable=True)
+    halted_at_node = Column(String, nullable=True)
+    terminal_reason_json = Column(JSON, nullable=True)
     input_source = Column(String, nullable=True)
     schema_version = Column(Integer, nullable=False, default=1)
     step_count = Column(Integer, nullable=False, default=0)
@@ -128,6 +131,7 @@ class IncidentRcaReport(Base):
     run_id = Column(String, ForeignKey("incident_runs.run_id"), primary_key=True)
     report_markdown = Column(Text, nullable=False)
     root_cause = Column(Text, nullable=False)
+    root_cause_status = Column(String, nullable=True)
     resolution = Column(Text, nullable=False)
     prevention_items_json = Column(JSON, nullable=True)
     confirmed_by_human = Column(Integer, default=0)
@@ -135,6 +139,9 @@ class IncidentRcaReport(Base):
     impact_assessment = Column(Text, nullable=True)
     supporting_evidence_ids_json = Column(JSON, nullable=True)
     executed_action_ids_json = Column(JSON, nullable=True)
+    candidate_hypotheses_json = Column(JSON, nullable=True)
+    automation_outcome_json = Column(JSON, nullable=True)
+    manual_next_steps_json = Column(JSON, nullable=True)
     archive_ref = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

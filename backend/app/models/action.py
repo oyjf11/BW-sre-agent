@@ -28,6 +28,9 @@ class ActionSpec(BaseModel):
     idempotency_key: Optional[str] = Field(
         default=None, description="Key for idempotency checks"
     )  # 幂等性 Key，用于防止重复执行
+    supporting_evidence_ids: List[str] = Field(
+        default_factory=list, description="Evidence IDs supporting this action"
+    )  # 支持此动作的证据 ID 列表
     preconditions: Optional[List[str]] = Field(
         default=None, description="Conditions that must be true before execution"
     )  # 执行前置条件列表（必须满足的条件描述）

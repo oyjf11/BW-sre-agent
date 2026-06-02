@@ -196,6 +196,7 @@ export async function installOpsPilotMocks(page: Page, options: MockOptions = {}
     window.localStorage.setItem('opspilot-locale', 'zh-CN');
 
     class MockEventSource {
+      static instances: MockEventSource[] = [];
       url: string;
       onopen: ((event: Event) => void) | null = null;
       onmessage: ((event: MessageEvent) => void) | null = null;
@@ -203,9 +204,22 @@ export async function installOpsPilotMocks(page: Page, options: MockOptions = {}
 
       constructor(url: string) {
         this.url = url;
+        MockEventSource.instances.push(this);
         window.setTimeout(() => {
-          this.onopen?.(new Event('open'));
+          this.open();
         }, 0);
+      }
+
+      open() {
+        this.onopen?.(new Event('open'));
+      }
+
+      emit(event: unknown) {
+        this.onmessage?.(new MessageEvent('message', { data: JSON.stringify(event) }));
+      }
+
+      fail() {
+        this.onerror?.(new Event('error'));
       }
 
       close() {
@@ -225,6 +239,11 @@ export async function installOpsPilotMocks(page: Page, options: MockOptions = {}
       configurable: true,
       writable: true,
       value: MockEventSource,
+    });
+
+    Object.defineProperty(window, '__opspilotEventSources', {
+      configurable: true,
+      value: MockEventSource.instances,
     });
   });
 

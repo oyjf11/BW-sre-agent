@@ -40,6 +40,9 @@ class RuntimeService:
             kwargs["severity"] = getattr(ticket, "severity", None) or (ticket.get("severity") if isinstance(ticket, dict) else None)
             kwargs["service"] = getattr(ticket, "service", None) or (ticket.get("service") if isinstance(ticket, dict) else None)
             kwargs["env"] = getattr(ticket, "env", None) or (ticket.get("env") if isinstance(ticket, dict) else None)
+            title = getattr(ticket, "title", None) or (ticket.get("title") if isinstance(ticket, dict) else None) or ""
+            description = getattr(ticket, "description", None) or (ticket.get("description") if isinstance(ticket, dict) else None) or ""
+            kwargs["summary_json"] = {"title": title, "description": description}
         if input_source:
             kwargs["input_source"] = input_source
 

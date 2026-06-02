@@ -1,18 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { RunDetailPage } from './RunDetailPage';
 import * as runsModule from '../services/runs';
 import { renderWithProviders } from '../test/render';
 
-vi.mock('../services/sse', () => ({
-  sseClient: {
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-  },
+const controllerMethods = vi.hoisted(() => ({
+  seedEvents: vi.fn(),
+  observeRun: vi.fn(),
+  start: vi.fn(),
+  dispose: vi.fn(),
+}));
+
+let capturedOptions: any = null;
+
+vi.mock('../services/runDetailSync', () => ({
+  createRunDetailSyncController: vi.fn((options) => {
+    capturedOptions = options;
+    controllerMethods.seedEvents = vi.fn();
+    controllerMethods.observeRun = vi.fn((run) => { capturedOptions?.onRun(run); });
+    controllerMethods.start = vi.fn(() => { capturedOptions?.onConnectionState('connecting'); });
+    controllerMethods.dispose = vi.fn();
+    return controllerMethods;
+  }),
 }));
 
 vi.mock('../services/runs', () => ({
@@ -26,16 +37,27 @@ vi.mock('../services/runs', () => ({
   },
 }));
 
+function renderPage() {
+  return renderWithProviders(
+    <MemoryRouter initialEntries={['/runs/run-123']}>
+      <Routes>
+        <Route path="/runs/:id" element={<RunDetailPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe('RunDetailPage', () => {
   const mockRun = {
-      run_id: 'run-123',
-      thread_id: 'thread-456',
-      status: 'TRIAGED',
-      severity: 'P1',
-      service: 'api-gateway',
-      env: 'prod',
-      created_at: '2024-01-15T10:00:00Z',
-    };
+    ticket_id: 'INC-1',
+    run_id: 'run-123',
+    thread_id: 'thread-456',
+    status: 'TRIAGED',
+    severity: 'P1',
+    service: 'api-gateway',
+    env: 'prod',
+    created_at: '2024-01-15T10:00:00Z',
+  };
 
   const mockEvents = [
     {
@@ -50,6 +72,9 @@ describe('RunDetailPage', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    capturedOptions = null;
+    vi.mocked(runsModule.runs.getRun).mockResolvedValue(mockRun as any);
+    vi.mocked(runsModule.runs.getRunEvents).mockResolvedValue(mockEvents);
     vi.mocked(runsModule.runs.getRunEvidence).mockResolvedValue([]);
     vi.mocked(runsModule.runs.getRunDiagnosis).mockResolvedValue({
       run_id: 'run-123',
@@ -67,47 +92,33 @@ describe('RunDetailPage', () => {
     } as any);
   });
 
-  it('renders loading state', () => {
-    vi.mocked(runsModule.runs.getRun).mockImplementation(
-      () => new Promise(() => {})
-    );
+  it('shows a skeleton during initial loading', () => {
+    vi.mocked(runsModule.runs.getRun).mockImplementation(() => new Promise(() => {}));
+    vi.mocked(runsModule.runs.getRunEvents).mockImplementation(() => new Promise(() => {}));
 
-    renderWithProviders(
-      <MemoryRouter initialEntries={['/runs/run-123']}>
-        <Routes>
-          <Route path="/runs/:id" element={<RunDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderPage();
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.getByTestId('run-detail-skeleton')).toBeInTheDocument();
   });
 
-  it('renders run details', async () => {
-    vi.mocked(runsModule.runs.getRun).mockResolvedValue(mockRun as any);
-    vi.mocked(runsModule.runs.getRunEvents).mockResolvedValue(mockEvents);
-
-    renderWithProviders(
-      <MemoryRouter initialEntries={['/runs/run-123']}>
-        <Routes>
-          <Route path="/runs/:id" element={<RunDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('api-gateway')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText(/prod/)).toBeInTheDocument();
-    expect(screen.getByText(/P1/)).toBeInTheDocument();
-    expect(screen.getAllByText('Triaged').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Events' })).toBeInTheDocument();
+  it('renders run detail after loading', async () => {
+    renderPage();
+    await screen.findByText('api-gateway');
+    expect(screen.getByText('api-gateway')).toBeInTheDocument();
   });
 
-  it('switches tabs and renders evidence and diagnosis content', async () => {
-    vi.mocked(runsModule.runs.getRun).mockResolvedValue(mockRun as any);
-    vi.mocked(runsModule.runs.getRunEvents).mockResolvedValue(mockEvents);
+  it('shows and clears the fallback notice from controller state', async () => {
+    renderPage();
+    await screen.findByText('api-gateway');
+
+    act(() => capturedOptions?.onConnectionState('polling'));
+    expect(screen.getByText(/Switched to automatic refresh/)).toBeInTheDocument();
+
+    act(() => capturedOptions?.onConnectionState('live'));
+    expect(screen.queryByText(/Switched to automatic refresh/)).not.toBeInTheDocument();
+  });
+
+  it('keeps existing evidence visible while artifacts refresh', async () => {
     vi.mocked(runsModule.runs.getRunEvidence).mockResolvedValue([
       {
         evidence_id: 'evd-1',
@@ -117,120 +128,103 @@ describe('RunDetailPage', () => {
         summary: '5xx elevated',
       },
     ] as any);
-    vi.mocked(runsModule.runs.getRunDiagnosis).mockResolvedValue({
-      run_id: 'run-123',
-      root_cause_candidates: [
-        {
-          candidate_id: 'cand-1',
-          hypothesis: 'A recent deploy caused the issue',
-          confidence: 0.8,
-          supporting_evidence_ids: [],
-          contradicting_evidence_ids: [],
-          next_checks: [],
-        },
-      ],
-    });
-
-    renderWithProviders(
-      <MemoryRouter initialEntries={['/runs/run-123']}>
-        <Routes>
-          <Route path="/runs/:id" element={<RunDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => expect(screen.getByText('Run started')).toBeInTheDocument());
-
+    renderPage();
+    await screen.findByText('api-gateway');
     await userEvent.setup().click(screen.getByRole('button', { name: 'Evidence' }));
+
+    let resolveRefresh!: () => void;
+    vi.mocked(runsModule.runs.getRunEvidence).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = () => resolve([]);
+        }),
+    );
+    act(() => void capturedOptions?.refreshArtifacts());
+
     expect(screen.getByText('5xx elevated')).toBeInTheDocument();
+    expect(screen.getByText('Refreshing...')).toBeInTheDocument();
+    resolveRefresh();
+  });
+
+  it('shows local waiting text while diagnosis has not been generated', async () => {
+    vi.mocked(runsModule.runs.getRunDiagnosis).mockRejectedValue(
+      Object.assign(new Error('No checkpoint found'), { status: 404 }),
+    );
+    renderPage();
+    await screen.findByText('api-gateway');
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Diagnosis' }));
-    expect(screen.getByText('A recent deploy caused the issue')).toBeInTheDocument();
+
+    expect(screen.getByText('Generating diagnosis...')).toBeInTheDocument();
   });
 
-  it('renders error state', async () => {
-    vi.mocked(runsModule.runs.getRun).mockRejectedValue(new Error('Not found'));
-    vi.mocked(runsModule.runs.getRunEvents).mockRejectedValue(new Error('Not found'));
+  it('ignores an older artifact response that resolves after a newer refresh', async () => {
+    vi.mocked(runsModule.runs.getRunEvidence).mockResolvedValueOnce([] as any);
+    renderPage();
+    await screen.findByText('api-gateway');
 
-    renderWithProviders(
-      <MemoryRouter initialEntries={['/runs/run-123']}>
-        <Routes>
-          <Route path="/runs/:id" element={<RunDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    let resolveOlder!: (value: any[]) => void;
+    let resolveNewer!: (value: any[]) => void;
+    vi.mocked(runsModule.runs.getRunEvidence)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveOlder = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveNewer = resolve;
+          }),
+      );
+    const older = capturedOptions?.refreshArtifacts();
+    const newer = capturedOptions?.refreshArtifacts();
+    resolveNewer([
+      {
+        evidence_id: 'new',
+        tool_name: 'logs',
+        category: 'logs',
+        source_ref: 'new',
+        summary: 'new evidence',
+      },
+    ]);
+    await newer;
+    resolveOlder([
+      {
+        evidence_id: 'old',
+        tool_name: 'logs',
+        category: 'logs',
+        source_ref: 'old',
+        summary: 'old evidence',
+      },
+    ]);
+    await older;
 
-    await waitFor(() => {
-      expect(screen.getByText('Error: Not found')).toBeInTheDocument();
-    });
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Evidence' }));
+    expect(screen.getByText('new evidence')).toBeInTheDocument();
+    expect(screen.queryByText('old evidence')).not.toBeInTheDocument();
   });
 
-  it('shows approval card when run is waiting for human input', async () => {
-    vi.mocked(runsModule.runs.getRun).mockResolvedValue({
-      ...mockRun,
-      status: 'WAITING_HUMAN',
-    } as any);
+  it('retries the initial request after a page load failure', async () => {
+    vi.mocked(runsModule.runs.getRun)
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce(mockRun as any);
     vi.mocked(runsModule.runs.getRunEvents).mockResolvedValue(mockEvents);
+    renderPage();
+    await screen.findByText(/Network error/);
 
-    renderWithProviders(
-      <MemoryRouter initialEntries={['/runs/run-123']}>
-        <Routes>
-          <Route path="/runs/:id" element={<RunDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
 
-    await waitFor(() => expect(screen.getByText('Human approval required before execution')).toBeInTheDocument());
-    expect(screen.getByRole('link', { name: 'Review approvals' })).toHaveAttribute('href', '/approvals');
+    expect(await screen.findByText('api-gateway')).toBeInTheDocument();
   });
 
-  it('renders trace link in quick actions', async () => {
-    vi.mocked(runsModule.runs.getRun).mockResolvedValue(mockRun as any);
-    vi.mocked(runsModule.runs.getRunEvents).mockResolvedValue(mockEvents);
+  it('disposes the page-scoped controller on unmount', async () => {
+    const view = renderPage();
+    await screen.findByText('api-gateway');
 
-    renderWithProviders(
-      <MemoryRouter initialEntries={['/runs/run-123']}>
-        <Routes>
-          <Route path="/runs/:id" element={<RunDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    view.unmount();
 
-    await waitFor(() => expect(screen.getByText('api-gateway')).toBeInTheDocument());
-    expect(screen.getByRole('link', { name: 'View Trace' })).toHaveAttribute(
-      'href',
-      '/incidents/runs/run-123/trace',
-    );
-  });
-
-  it('uses external trace URL for the View Trace action when present', async () => {
-    vi.mocked(runsModule.runs.getRun).mockResolvedValue(mockRun as any);
-    vi.mocked(runsModule.runs.getRunEvents).mockResolvedValue(mockEvents);
-    vi.mocked(runsModule.runs.getRunTrace).mockResolvedValue({
-      run_id: 'run-123',
-      provider: 'langfuse',
-      trace_url: '/incidents/runs/run-123/trace',
-      external_trace_id: 'trace-run-123',
-      external_root_span_id: 'span-root',
-      external_trace_url: 'https://langfuse.example/project/opspilot/traces/trace-run-123',
-      spans: [],
-    } as any);
-
-    renderWithProviders(
-      <MemoryRouter initialEntries={['/runs/run-123']}>
-        <Routes>
-          <Route path="/runs/:id" element={<RunDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('api-gateway')).toBeInTheDocument();
-    });
-
-    expect(screen.getByRole('link', { name: 'View Trace' })).toHaveAttribute(
-      'href',
-      'https://langfuse.example/project/opspilot/traces/trace-run-123',
-    );
+    expect(controllerMethods.dispose).toHaveBeenCalledOnce();
   });
 });

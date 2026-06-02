@@ -112,7 +112,7 @@ export function ApprovalDetailPage() {
             </p>
           </div>
           <div>
-            <label className="text-sm text-content-muted">Reason</label>
+            <label className="text-sm text-content-muted">{t('approval.reason')}</label>
             <p className="text-content-primary mt-1">{approval.reason}</p>
           </div>
         </div>
@@ -120,7 +120,7 @@ export function ApprovalDetailPage() {
         {showModify ? (
           <div className="space-y-4 mb-6">
             <div>
-              <label className="text-sm text-content-muted">Modified Parameters (JSON)</label>
+              <label className="text-sm text-content-muted">{t('approval.modifiedParams')}</label>
               <textarea
                 value={modifiedParams}
                 onChange={(e) => setModifiedParams(e.target.value)}
@@ -173,7 +173,7 @@ export function ApprovalDetailPage() {
               disabled={submitting}
               className="btn btn-ghost col-span-2 cursor-pointer"
             >
-              Need More Info
+              {t('approval.needMoreInfo')}
             </button>
           </div>
         )}

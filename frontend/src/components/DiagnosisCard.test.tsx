@@ -3,6 +3,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { RootCauseCandidate } from '../types';
 import { DiagnosisCard } from './DiagnosisCard';
+import { I18nProvider } from '../i18n';
+
+function renderWithI18n(ui: React.ReactElement) {
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
 
 describe('DiagnosisCard', () => {
   const mockCandidate: RootCauseCandidate = {
@@ -15,29 +20,29 @@ describe('DiagnosisCard', () => {
   };
 
   it('renders no candidates message when empty', () => {
-    render(<DiagnosisCard candidates={[]} />);
+    renderWithI18n(<DiagnosisCard candidates={[]} />);
     expect(screen.getByText('No root cause candidates yet')).toBeInTheDocument();
   });
 
   it('renders candidate hypothesis', () => {
-    render(<DiagnosisCard candidates={[mockCandidate]} />);
+    renderWithI18n(<DiagnosisCard candidates={[mockCandidate]} />);
     expect(screen.getByText('Database connection pool exhausted')).toBeInTheDocument();
   });
 
   it('renders confidence percentage', () => {
-    render(<DiagnosisCard candidates={[mockCandidate]} />);
+    renderWithI18n(<DiagnosisCard candidates={[mockCandidate]} />);
     expect(screen.getByText('85%')).toBeInTheDocument();
   });
 
   it('renders supporting evidence IDs', () => {
-    render(<DiagnosisCard candidates={[mockCandidate]} />);
+    renderWithI18n(<DiagnosisCard candidates={[mockCandidate]} />);
     expect(screen.getByText('Supporting evidence:')).toBeInTheDocument();
     expect(screen.getByText('ev-001')).toBeInTheDocument();
     expect(screen.getByText('ev-002')).toBeInTheDocument();
   });
 
   it('renders next checks', () => {
-    render(<DiagnosisCard candidates={[mockCandidate]} />);
+    renderWithI18n(<DiagnosisCard candidates={[mockCandidate]} />);
     expect(screen.getByText('Next checks: check_db_connections, check_pool_size')).toBeInTheDocument();
   });
 
@@ -45,7 +50,7 @@ describe('DiagnosisCard', () => {
     const user = userEvent.setup();
     const onEvidenceClick = vi.fn();
     
-    render(<DiagnosisCard candidates={[mockCandidate]} onEvidenceClick={onEvidenceClick} />);
+    renderWithI18n(<DiagnosisCard candidates={[mockCandidate]} onEvidenceClick={onEvidenceClick} />);
     
     await user.click(screen.getByText('ev-001'));
     expect(onEvidenceClick).toHaveBeenCalledWith('ev-001');
@@ -57,7 +62,7 @@ describe('DiagnosisCard', () => {
       { ...mockCandidate, candidate_id: 'rc-002', hypothesis: 'Memory leak', confidence: 0.6 },
     ];
     
-    render(<DiagnosisCard candidates={candidates} />);
+    renderWithI18n(<DiagnosisCard candidates={candidates} />);
     
     expect(screen.getByText('Database connection pool exhausted')).toBeInTheDocument();
     expect(screen.getByText('Memory leak')).toBeInTheDocument();

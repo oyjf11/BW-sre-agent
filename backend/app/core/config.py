@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     app_env: AppEnv = AppEnv.DEV
 
-    # LLM provider selection: "minimax" | "openai"
+    # LLM provider selection: "minimax" | "openai" | "deepseek"
     llm_provider: str = "minimax"
 
     # OpenAI settings (only required when llm_provider=openai)
@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     k8s_cluster_id: str = ""
 
     log_level: str = "INFO"
+
+    # Internationalization
+    i18n_language: str = "zh"
 
     rag_enabled: bool = False
     rag_persist_dir: str = "./storage/chroma"

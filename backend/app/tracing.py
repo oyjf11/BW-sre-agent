@@ -137,13 +137,13 @@ class AgentTracer:
         return run_id_var.set(run_id)
 
     def reset_run_context(self, token) -> None:
-        run_id_var.reset(token)
+        run_id_var.set(None)
 
     def set_step_context(self, span_id: Optional[str]):
         return step_id_var.set(span_id)
 
     def reset_step_context(self, token) -> None:
-        step_id_var.reset(token)
+        step_id_var.set(None)
 
     def flush(self) -> None:
         try:

@@ -39,6 +39,9 @@ class ApprovalCreate(BaseModel):
 class ApprovalResponse(BaseModel):
     approval_id: str
     run_id: str
+    ticket_id: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
     action: Dict[str, Any]
     risk_level: str
     status: str
@@ -62,9 +65,23 @@ class ApprovalDecision(BaseModel):
 
 
 def _to_response(a) -> ApprovalResponse:
+    ticket_id = None
+    title = None
+    description = None
+    run = a.run
+    if run:
+        ticket_id = run.ticket_id
+        summary = run.summary_json or {}
+        if isinstance(summary, dict):
+            title = summary.get("title")
+            description = summary.get("description")
+
     return ApprovalResponse(
         approval_id=a.approval_id,
         run_id=a.run_id,
+        ticket_id=ticket_id,
+        title=title,
+        description=description,
         action=a.action_json,
         risk_level=a.risk_level,
         status=a.status,

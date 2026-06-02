@@ -3,6 +3,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { RunEvent } from '../types';
 import { EventTimeline } from './EventTimeline';
+import { I18nProvider } from '../i18n';
+
+function renderWithI18n(ui: React.ReactElement) {
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
 
 describe('EventTimeline', () => {
   const mockEvents: RunEvent[] = [
@@ -34,20 +39,20 @@ describe('EventTimeline', () => {
   ];
 
   it('renders all events by default', () => {
-    render(<EventTimeline events={mockEvents} />);
+    renderWithI18n(<EventTimeline events={mockEvents} />);
     expect(screen.getByText('Triage completed')).toBeInTheDocument();
     expect(screen.getByText('Logs collected')).toBeInTheDocument();
     expect(screen.getByText('Failed to restart service')).toBeInTheDocument();
   });
 
   it('shows no events message when empty', () => {
-    render(<EventTimeline events={[]} />);
+    renderWithI18n(<EventTimeline events={[]} />);
     expect(screen.getByText('No events')).toBeInTheDocument();
   });
 
   it('filters events by level', async () => {
     const user = userEvent.setup();
-    render(<EventTimeline events={mockEvents} />);
+    renderWithI18n(<EventTimeline events={mockEvents} />);
     
     const select = screen.getByRole('combobox');
     await user.selectOptions(select, 'ERROR');
@@ -57,7 +62,7 @@ describe('EventTimeline', () => {
   });
 
   it('shows level badges', () => {
-    render(<EventTimeline events={mockEvents} />);
+    renderWithI18n(<EventTimeline events={mockEvents} />);
     
     const infoBadge = screen.getAllByText('INFO')[0];
     const warningBadge = screen.getAllByText('WARNING')[0];
@@ -69,17 +74,17 @@ describe('EventTimeline', () => {
   });
 
   it('shows node name when present', () => {
-    render(<EventTimeline events={mockEvents} />);
+    renderWithI18n(<EventTimeline events={mockEvents} />);
     expect(screen.getByText('@triage')).toBeInTheDocument();
   });
 
   it('has auto-scroll checkbox', () => {
-    render(<EventTimeline events={mockEvents} />);
+    renderWithI18n(<EventTimeline events={mockEvents} />);
     expect(screen.getByLabelText('Auto-scroll')).toBeInTheDocument();
   });
 
   it('shows reconnect button when onReconnect is provided', () => {
-    render(<EventTimeline events={mockEvents} onReconnect={() => {}} />);
+    renderWithI18n(<EventTimeline events={mockEvents} onReconnect={() => {}} />);
     const buttons = screen.getAllByRole('button');
     expect(buttons.length).toBeGreaterThan(0);
   });

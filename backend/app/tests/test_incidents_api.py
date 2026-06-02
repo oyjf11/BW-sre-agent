@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -6,8 +7,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.incidents import router, get_db
-from app.models.db_models import Base, IncidentCheckpoint, IncidentRun, RunStatusEnum
+from app.api.incidents import router, get_db, _format_sse_event
+from app.models.db_models import (
+    Base,
+    IncidentCheckpoint,
+    IncidentRun,
+    IncidentRunEvent,
+    RunStatusEnum,
+)
 from app.tracing import tracer
 from app.tracing_providers import LocalTraceProvider, ProviderSpanResult
 
@@ -189,3 +196,56 @@ def test_get_run_trace_returns_external_trace_metadata():
     assert payload["external_root_span_id"] == "external-root-span"
     assert payload["external_trace_url"] == "https://trace.example/run-123"
     tracer.configure_provider(LocalTraceProvider())
+
+
+def test_format_sse_event_uses_default_message_event():
+    payload = {
+        "event_id": "evt-1",
+        "run_id": "run-123",
+        "timestamp": "2026-06-02T10:00:00",
+        "level": "INFO",
+        "type": "NODE_STARTED",
+        "node_name": "node_intake",
+        "message": "started",
+        "data": None,
+    }
+
+    formatted = _format_sse_event(payload)
+
+    assert formatted == {"data": json.dumps(payload, default=str)}
+
+
+def test_get_run_events_filters_by_last_event_id():
+    app, session_factory = create_test_client()
+    seed_run_with_checkpoint(session_factory)
+    db = session_factory()
+    try:
+        db.add_all(
+            [
+                IncidentRunEvent(
+                    event_id="evt-1",
+                    run_id="run-123",
+                    ts=datetime(2026, 6, 2, 10, 0, 0),
+                    level="INFO",
+                    type="RUN_CREATED",
+                    message="created",
+                ),
+                IncidentRunEvent(
+                    event_id="evt-2",
+                    run_id="run-123",
+                    ts=datetime(2026, 6, 2, 10, 0, 1),
+                    level="INFO",
+                    type="NODE_STARTED",
+                    message="started",
+                ),
+            ]
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    with TestClient(app) as client:
+        response = client.get("/incidents/runs/run-123/events?last_event_id=evt-1")
+
+    assert response.status_code == 200
+    assert [event["event_id"] for event in response.json()] == ["evt-2"]

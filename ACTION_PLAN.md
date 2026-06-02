@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
-> 生成时间: 2026-04-06 | 更新时间: 2026-05-31
-> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；LLM 已切换至 DeepSeek，具体模型由 `DEEPSEEK_MODEL` 配置；Phase 8 离线评测尚未启动。
+> 生成时间: 2026-04-06 | 更新时间: 2026-06-01
+> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；Phase 8 启动前 real adapter 收口已完成；LLM 已切换至 DeepSeek，具体模型由 `DEEPSEEK_MODEL` 配置；Phase 8 离线评测尚未启动。
 
 ---
 
@@ -331,6 +331,25 @@
 
 ---
 
+## Phase 8 启动前收口 — ✅ 已完成（2026-06-01）
+
+**目标**: 在进入离线评测前，收紧 real adapter 边界，避免真实模式静默回退到 mock 数据或生成伪工单。
+
+**完成说明**:
+- `ToolGateway` 的 adapter 模式统一从 `Settings.tool_adapter_mode` 读取；`TOOL_ADAPTER_MODE=real` 时，未配置真实 adapter 的工具不再回退 mock。
+- `query_ticket_by_id`、`query_service_metadata`、`query_runbook`、`execute_action` 的 real 路由已显式 fail-closed，需接入真实平台后才能使用。
+- ticket ID 拉取失败时不再生成 synthetic ticket；`service_exists` 预检会同时校验工具调用是否成功和服务是否真实存在。
+- `MySQLClient` 统一从 `Settings` 读取连接配置；MySQL 真实适配器不再吞掉连接或查询异常，由 gateway 返回失败。
+- `RAG_ENABLED=false` 时检索直接返回空结果，不再初始化向量索引。
+- RCA 人工确认后的归档路径已从 synthetic path 改为通过 `write_rca_to_oss` gateway 调用。
+- `backend/.env.example` 已同步 DeepSeek、RAG、tracing、CMS/K8s 和 real adapter 示例配置。
+
+**验证**:
+- 后端：`cd backend && source venv/bin/activate && python -m pytest app/tests/ -x -q`（166 passed）
+- 前端：`cd frontend && npx vitest run`（22 个测试文件，145 passed）
+
+---
+
 ## Phase 8: 离线评测（P2，预计 2-3 天）
 
 ### Task 8.1: 评测框架搭建
@@ -618,6 +637,7 @@ Phase 5 执行顺序:
 
 Phase 6 (Task 6.1)          ── ✅ 已完成（2026-05-28）
 Phase 7 (Task 7.1)          ── ✅ 已完成，LangSmith 真实验证通过（2026-05-31）
+Phase 8 启动前收口          ── ✅ 已完成（2026-06-01）
 
 Phase 8 (Task 8.1)         ── 最后，2-3 天
 

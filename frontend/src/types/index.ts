@@ -23,9 +23,19 @@ export interface RunSummary {
   completed_at?: string;
 }
 
+export interface TerminalReason {
+  code: string;
+  stage: string;
+  message: string;
+  failed_tools?: string[];
+  missing_evidence_categories?: string[];
+}
+
 export interface RunDetail extends RunSummary {
   ticket?: IncidentTicket;
   current_node?: string;
+  halted_at_node?: string;
+  terminal_reason?: TerminalReason;
   step_count?: number;
 }
 
@@ -113,6 +123,7 @@ export interface ActionSpec {
   risk_level: string;
   requires_approval: boolean;
   idempotency_key?: string;
+  supporting_evidence_ids?: string[];
 }
 
 export interface RemediationPlan {
@@ -126,6 +137,9 @@ export interface RemediationPlan {
 export interface ApprovalSummary {
   approval_id: string;
   run_id: string;
+  ticket_id?: string;
+  title?: string;
+  description?: string;
   action: ActionSpec;
   risk_level: string;
   status: string;
@@ -145,9 +159,13 @@ export interface RcaReport {
   run_id: string;
   report_markdown: string;
   root_cause: string;
+  root_cause_status?: string;
   resolution: string;
   prevention_items: string[];
   confirmed_by_human: boolean;
+  candidate_hypotheses?: Array<{ hypothesis: string; confidence: number }>;
+  automation_outcome?: Record<string, unknown>;
+  manual_next_steps?: string[];
 }
 
 export interface LlmConfig {
@@ -159,4 +177,22 @@ export interface LlmConfig {
   minimax_model: string;
   deepseek_api_key: string;
   deepseek_model: string;
+}
+
+export interface EvidenceCollectionResult {
+  status: string;
+  tool_name: string;
+  category: string;
+  summary?: string;
+  error_summary?: string;
+  latency_ms: number;
+  collected_at: string;
+}
+
+export interface EvidenceCollectionResults {
+  run_id: string;
+  collection_results: EvidenceCollectionResult[];
+  evidence_quality_score?: number;
+  missing_evidence_categories: string[];
+  failed_evidence_tools: string[];
 }

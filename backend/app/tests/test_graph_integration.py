@@ -29,8 +29,16 @@ class TestIncidentGraph:
             state["step_count"] = (state.get("step_count") or 0) + 1
             return state
 
+        def force_pass_critic(state: IncidentAgentState) -> IncidentAgentState:
+            state["critic_decision"] = "PASS"
+            state["evidence_quality_score"] = 0.9
+            state["missing_evidence_categories"] = []
+            state["step_count"] = (state.get("step_count") or 0) + 1
+            return state
+
         monkeypatch.setattr(builder_module, "risk_gate_node", low_risk_gate)
         monkeypatch.setattr(builder_module, "verify_outcome_node", passing_verify)
+        monkeypatch.setattr(builder_module, "critic_node", force_pass_critic)
 
         graph = create_incident_graph()
 
@@ -50,6 +58,8 @@ class TestIncidentGraph:
             "ticket": ticket,
             "evidence_items": [],
             "root_cause_candidates": [],
+            "evidence_collection_results": [],
+            "evidence_quality_score": 0.0,
             "step_count": 0,
         }
 
@@ -71,7 +81,15 @@ class TestIncidentGraph:
             state["step_count"] = (state.get("step_count") or 0) + 1
             return state
 
+        def force_pass_critic(state: IncidentAgentState) -> IncidentAgentState:
+            state["critic_decision"] = "PASS"
+            state["evidence_quality_score"] = 0.9
+            state["missing_evidence_categories"] = []
+            state["step_count"] = (state.get("step_count") or 0) + 1
+            return state
+
         monkeypatch.setattr(builder_module, "risk_gate_node", low_risk_gate)
+        monkeypatch.setattr(builder_module, "critic_node", force_pass_critic)
 
         graph = create_incident_graph()
 
@@ -91,6 +109,8 @@ class TestIncidentGraph:
             "ticket": ticket,
             "evidence_items": [],
             "root_cause_candidates": [],
+            "evidence_collection_results": [],
+            "evidence_quality_score": 0.0,
             "step_count": 0,
         }
 
@@ -110,6 +130,17 @@ class TestIncidentGraph:
     @pytest.mark.asyncio
     async def test_graph_waits_for_approval_on_high_risk_action(self, monkeypatch):
         """High-risk remediation should stop at approval interrupt."""
+        import app.graph.builder as builder_module
+
+        def force_pass_critic(state: IncidentAgentState) -> IncidentAgentState:
+            state["critic_decision"] = "PASS"
+            state["evidence_quality_score"] = 0.9
+            state["missing_evidence_categories"] = []
+            state["step_count"] = (state.get("step_count") or 0) + 1
+            return state
+
+        monkeypatch.setattr(builder_module, "critic_node", force_pass_critic)
+
         graph = create_incident_graph()
 
         ticket = IncidentTicket(
@@ -133,6 +164,17 @@ class TestIncidentGraph:
                   }
                 ]
                 """
+            if "triage information" in prompt:
+                return """
+                {
+                  "incident_type": "deployment_regression",
+                  "severity": "P1",
+                  "suspected_services": ["api-service"],
+                  "suggested_time_window": {"start": "2h ago", "end": "now"},
+                  "requires_immediate_human": false,
+                  "rationale": "Deployment regression test"
+                }
+                """
             return "fallback_response"
 
         monkeypatch.setattr(llm_client, "complete_sync", fake_complete_sync)
@@ -143,6 +185,8 @@ class TestIncidentGraph:
             "ticket": ticket,
             "evidence_items": [],
             "root_cause_candidates": [],
+            "evidence_collection_results": [],
+            "evidence_quality_score": 0.0,
             "step_count": 0,
         }
 

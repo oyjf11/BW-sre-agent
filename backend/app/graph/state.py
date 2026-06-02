@@ -18,6 +18,7 @@ class RunStatus(str, Enum):
     DIAGNOSED = "DIAGNOSED"
     PENDING_APPROVAL = "PENDING_APPROVAL"
     WAITING_HUMAN = "WAITING_HUMAN"
+    NEEDS_HUMAN = "NEEDS_HUMAN"
     EXECUTING = "EXECUTING"
     VERIFYING = "VERIFYING"
     COMPLETED = "COMPLETED"
@@ -58,6 +59,8 @@ class IncidentAgentState(TypedDict, total=False):
     evidence_summary: Optional[str]
     evidence_quality_score: Optional[float]
     missing_evidence_categories: List[str]
+    failed_evidence_tools: List[str]
+    evidence_collection_results: List[Dict[str, Any]]
     critic_decision: Optional[str]
     risk_decision: Optional[str]
     verify_decision: Optional[str]
@@ -65,6 +68,8 @@ class IncidentAgentState(TypedDict, total=False):
     verification_evidence_ids: List[str]
     execution_results: List[Dict[str, Any]]
     final_outcome: Optional[str]
+    terminal_reason: Optional[Dict[str, Any]]
+    halted_at_node: Optional[str]
     user_context: Optional[Dict[str, Any]]
     # Internal resume control
     _resume_from_node: Optional[str]

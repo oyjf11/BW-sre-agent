@@ -1,6 +1,7 @@
 """EventBus: publish events to DB + SSE subscribers."""
 
 import asyncio
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, Optional
@@ -16,6 +17,7 @@ class EventType(str, Enum):
     RUN_CREATED = "RUN_CREATED"
     RUN_COMPLETED = "RUN_COMPLETED"
     RUN_FAILED = "RUN_FAILED"
+    RUN_PAUSED = "RUN_PAUSED"
     RUN_RESUMED = "RUN_RESUMED"
 
     # Node lifecycle
@@ -53,9 +55,19 @@ class EventType(str, Enum):
     RCA_CONFIRMED = "RCA_CONFIRMED"
 
 
+@dataclass
+class Subscriber:
+    queue: asyncio.Queue
+    loop: asyncio.AbstractEventLoop
+
+
 class EventBus:
     def __init__(self):
-        self._subscribers: Dict[str, list[asyncio.Queue]] = {}
+        self._subscribers: Dict[str, list[Subscriber]] = {}
+
+    def _notify(self, run_id: str, event: Dict[str, Any]) -> None:
+        for subscriber in list(self._subscribers.get(run_id, [])):
+            subscriber.loop.call_soon_threadsafe(subscriber.queue.put_nowait, event)
 
     def publish(
         self,
@@ -82,42 +94,39 @@ class EventBus:
         db.commit()
         db.refresh(event)
 
-        # Notify SSE subscribers
         event_dict = {
             "event_id": event.event_id,
             "run_id": event.run_id,
-            "ts": event.ts.isoformat(),
+            "timestamp": event.ts.isoformat(),
             "level": event.level,
             "type": event.type,
             "node_name": event.node_name,
             "message": event.message,
             "data": event.data_json,
         }
-        for queue in self._subscribers.get(run_id, []):
-            queue.put_nowait(event_dict)
+        self._notify(run_id, event_dict)
 
         return event
 
-    def subscribe(self, run_id: str) -> asyncio.Queue:
-        queue: asyncio.Queue = asyncio.Queue()
-        self._subscribers.setdefault(run_id, []).append(queue)
-        return queue
+    def subscribe(self, run_id: str) -> Subscriber:
+        subscriber = Subscriber(queue=asyncio.Queue(), loop=asyncio.get_running_loop())
+        self._subscribers.setdefault(run_id, []).append(subscriber)
+        return subscriber
 
-    def unsubscribe(self, run_id: str, queue: asyncio.Queue) -> None:
-        queues = self._subscribers.get(run_id, [])
-        if queue in queues:
-            queues.remove(queue)
-        if not queues and run_id in self._subscribers:
+    def unsubscribe(self, run_id: str, subscriber: Subscriber) -> None:
+        subscribers = self._subscribers.get(run_id, [])
+        if subscriber in subscribers:
+            subscribers.remove(subscriber)
+        if not subscribers and run_id in self._subscribers:
             del self._subscribers[run_id]
 
     async def iter_events(self, run_id: str) -> AsyncIterator[Dict[str, Any]]:
-        queue = self.subscribe(run_id)
+        subscriber = self.subscribe(run_id)
         try:
             while True:
-                event = await queue.get()
-                yield event
+                yield await subscriber.queue.get()
         finally:
-            self.unsubscribe(run_id, queue)
+            self.unsubscribe(run_id, subscriber)
 
 
 # Singleton
