@@ -87,4 +87,4 @@ def retrieve(query: str, filters: Dict[str, Any], top_k: Optional[int] = None) -
         filters=_build_filters(filters),
     )
     chunks = _to_retrieved_chunks(retriever.retrieve(query))
-    return rerank(query, chunks) if rag_settings.enable_reranker else chunks
+    return rerank(query, chunks, rag_settings.reranker_top_n) if rag_settings.enable_reranker else chunks
