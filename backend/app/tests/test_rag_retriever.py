@@ -90,3 +90,44 @@ def test_rerank_sorts_chunks_by_cross_encoder_score(monkeypatch):
 
     assert [chunk.doc_id for chunk in reranked] == ["doc-2", "doc-1"]
     assert reranked[0].score == 0.9
+
+
+def test_rerank_respects_top_n(monkeypatch):
+    chunks = [
+        RetrievedChunk(
+            doc_id="doc-1", chunk_id="chunk-1", doc_type="runbook",
+            content="内容1", score=0.8, metadata={},
+        ),
+        RetrievedChunk(
+            doc_id="doc-2", chunk_id="chunk-2", doc_type="rca",
+            content="内容2", score=0.7, metadata={},
+        ),
+        RetrievedChunk(
+            doc_id="doc-3", chunk_id="chunk-3", doc_type="runbook",
+            content="内容3", score=0.6, metadata={},
+        ),
+        RetrievedChunk(
+            doc_id="doc-4", chunk_id="chunk-4", doc_type="rca",
+            content="内容4", score=0.9, metadata={},
+        ),
+        RetrievedChunk(
+            doc_id="doc-5", chunk_id="chunk-5", doc_type="runbook",
+            content="内容5", score=0.5, metadata={},
+        ),
+    ]
+
+    class FakeModel:
+        def predict(self, pairs):
+            return [float(chunk.score) for chunk in chunks]
+
+    monkeypatch.setattr("app.rag.reranker.get_reranker_model", lambda: FakeModel())
+
+    result = rerank("query", chunks, top_n=3)
+    assert len(result) == 3
+    assert result[0].doc_id == "doc-4"
+
+    result_all = rerank("query", chunks, top_n=None)
+    assert len(result_all) == 5
+
+    result_zero = rerank("query", chunks, top_n=0)
+    assert len(result_zero) == 5

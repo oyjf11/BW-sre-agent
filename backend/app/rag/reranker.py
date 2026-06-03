@@ -1,7 +1,7 @@
 """BGE reranker adapter."""
 
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 from sentence_transformers import CrossEncoder
 
@@ -13,11 +13,17 @@ def get_reranker_model() -> CrossEncoder:
     return CrossEncoder("BAAI/bge-reranker-base")
 
 
-def rerank(query: str, chunks: List[RetrievedChunk]) -> List[RetrievedChunk]:
+def rerank(
+    query: str,
+    chunks: List[RetrievedChunk],
+    top_n: Optional[int] = None,
+) -> List[RetrievedChunk]:
     if not chunks:
         return []
 
-    scores = get_reranker_model().predict([(query, chunk.content) for chunk in chunks])
+    scores = get_reranker_model().predict(
+        [(query, chunk.content) for chunk in chunks]
+    )
     rescored = [
         RetrievedChunk(
             doc_id=chunk.doc_id,
@@ -29,4 +35,7 @@ def rerank(query: str, chunks: List[RetrievedChunk]) -> List[RetrievedChunk]:
         )
         for chunk, score in zip(chunks, scores)
     ]
-    return sorted(rescored, key=lambda chunk: chunk.score, reverse=True)
+    sorted_chunks = sorted(rescored, key=lambda chunk: chunk.score, reverse=True)
+    if top_n and top_n > 0:
+        return sorted_chunks[:top_n]
+    return sorted_chunks
