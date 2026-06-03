@@ -94,6 +94,9 @@ class Settings(BaseSettings):
     rag_runbook_dir: str = "./knowledge/runbooks"
     rag_top_k: int = 5
     rag_enable_reranker: bool = False
+    rag_reranker_top_n: int = 5
+
+    agent_feature_specialist_pool: bool = False
 
     tracing_provider: str = "local"
     tracing_project: str = "opspilot"

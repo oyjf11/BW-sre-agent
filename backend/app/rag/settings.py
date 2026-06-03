@@ -14,6 +14,7 @@ class RagSettings:
     runbook_dir: str = "./knowledge/runbooks"
     top_k: int = 5
     enable_reranker: bool = False
+    reranker_top_n: int = 5
 
     def __init__(self):
         settings = get_settings()
@@ -26,3 +27,4 @@ class RagSettings:
         object.__setattr__(self, "runbook_dir", settings.rag_runbook_dir)
         object.__setattr__(self, "top_k", settings.rag_top_k)
         object.__setattr__(self, "enable_reranker", settings.rag_enable_reranker)
+        object.__setattr__(self, "reranker_top_n", settings.rag_reranker_top_n)
