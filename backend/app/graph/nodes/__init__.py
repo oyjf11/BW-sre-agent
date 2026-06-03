@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 import uuid
 import asyncio
@@ -12,8 +12,10 @@ from app.models.root_cause import RootCauseCandidate
 from app.models.remediation import RemediationPlan, ActionSpec
 from app.models.approval import ApprovalRequest
 from app.models.rca import RcaReport
+from app.models.planning import AgentTask, SpecialistAnalysis
 from app.tools import gateway, ToolRequest
 from app.llm_client import llm_client
+from app.core.config import get_settings
 from app.graph.evidence_utils import (
     EvidenceCollectionResult,
     classify_result,
@@ -269,21 +271,35 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
 
     def _add_k8s_tasks(svc: str, incident: str):
         if incident == "resource_exhaustion":
+            _add("k8s", "query_k8s_nodes", 1, svc)
             _add("k8s", "query_k8s_deployment_status", 2, svc)
             _add("k8s", "query_k8s_pods", 2, svc)
+            _add("k8s", "query_k8s_hpa", 2, svc)
             _add("k8s", "query_k8s_events", 3, svc, {"limit": 20})
+            _add("k8s", "query_k8s_resource_quotas", 3, svc)
             _add("k8s", "query_k8s_pod_logs_summary", 4, svc, {"tail_lines": 100})
+            _add("k8s", "query_k8s_pvc", 4, svc)
         elif incident == "dependency_failure":
             _add("k8s", "query_k8s_deployment_status", 2, svc)
             _add("k8s", "query_k8s_events", 2, svc, {"limit": 20})
+            _add("k8s", "query_k8s_services", 2, svc)
             _add("k8s", "query_k8s_pod_logs_summary", 3, svc, {"tail_lines": 100})
+            _add("k8s", "query_k8s_ingresses", 3, svc)
         elif incident == "deployment_regression":
             _add("k8s", "query_k8s_deployment_status", 2, svc)
             _add("k8s", "query_k8s_pods", 3, svc)
             _add("k8s", "query_k8s_events", 3, svc, {"limit": 20})
+            _add("k8s", "query_k8s_replicasets", 3, svc)
+            _add("k8s", "query_k8s_configmaps", 4, svc)
         else:
             _add("k8s", "query_k8s_deployment_status", 3, svc)
             _add("k8s", "query_k8s_pods", 3, svc)
+            _add("k8s", "query_k8s_nodes", 4, svc)
+            _add("k8s", "query_k8s_services", 4, svc)
+            _add("k8s", "query_k8s_hpa", 4, svc)
+            _add("k8s", "query_k8s_statefulsets", 5, svc)
+            _add("k8s", "query_k8s_daemonsets", 5, svc)
+            _add("k8s", "query_k8s_jobs", 5, svc)
 
     if incident_type == "deployment_regression":
         # Deployments + logs first
@@ -337,13 +353,55 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
         "tasks": [t.model_dump() for t in tasks],
         "rationale": rationale,
     }
+
+    # --- Specialist Agent Pool (v2): generate AgentTask list ---
+    settings = get_settings()
+    if settings.agent_feature_specialist_pool:
+        agent_tasks = _generate_agent_tasks(state)
+        state["agent_tasks"] = [t.model_dump() for t in agent_tasks]
+
     state["status"] = RunStatus.PLANNED
     state["step_count"] = state.get("step_count", 0) + 1
 
     return state
 
 
+def _generate_agent_tasks(state: IncidentAgentState) -> List:
+    from app.models.planning import AgentTask
+
+    ticket = state.get("ticket")
+    triage = state.get("triage")
+
+    service = ticket.service if hasattr(ticket, "service") else ticket.get("service", "unknown")
+    env = ticket.env if hasattr(ticket, "env") else ticket.get("env", "unknown")
+    incident_type = (
+        triage.incident_type if hasattr(triage, "incident_type")
+        else triage.get("incident_type", "unknown")
+    )
+
+    categories = ["k8s", "db", "logs", "metrics", "deployments"]
+    tasks = []
+    for cat in categories:
+        tasks.append(AgentTask(
+            agent_id=f"{cat}_specialist",
+            category=cat,
+            service=service,
+            env=env,
+            incident_type=incident_type,
+        ))
+    return tasks
+
+
 async def evidence_fanout_node(state: IncidentAgentState) -> IncidentAgentState:
+    settings = get_settings()
+
+    if not settings.agent_feature_specialist_pool:
+        return await _original_evidence_fanout(state)
+
+    return await _evidence_fanout_v2(state)
+
+
+async def _original_evidence_fanout(state: IncidentAgentState) -> IncidentAgentState:
     """Dynamic evidence fanout: dispatch tasks from InvestigationPlan in parallel."""
     investigation_plan = state.get("investigation_plan")
     plan = state.get("plan")
@@ -447,6 +505,141 @@ async def evidence_fanout_node(state: IncidentAgentState) -> IncidentAgentState:
     state["step_count"] = state.get("step_count", 0) + 1
 
     return state
+
+
+async def _evidence_fanout_v2(state: IncidentAgentState) -> IncidentAgentState:
+    """v2 evidence fanout: dispatch Specialist Agents in parallel with ReAct loop."""
+    from app.graph.nodes.specialist_agent import (
+        load_agent_configs,
+        SpecialistAgent,
+        _build_default_agent_tasks,
+        _build_llm_failed_shell_static,
+    )
+
+    run_id = state.get("run_id", "unknown")
+    state["status"] = RunStatus.GATHERING_EVIDENCE
+
+    ticket = state.get("ticket")
+    agent_tasks_raw = state.get("agent_tasks") or []
+
+    agent_configs = load_agent_configs()
+
+    # Fallback level 2: convert plan tasks to agent tasks
+    if not agent_tasks_raw:
+        plan = state.get("plan") or {}
+        plan_tasks = plan.get("tasks", [])
+        if plan_tasks:
+            agent_tasks_raw = _fallback_from_plan_to_agent_tasks(plan_tasks, ticket)
+
+    # Fallback level 3: generate default agent tasks
+    if not agent_tasks_raw:
+        agent_tasks_raw = [
+            t.model_dump() for t in _build_default_agent_tasks(ticket)
+        ]
+
+    agent_tasks = [
+        AgentTask(**t) if isinstance(t, dict) else t
+        for t in agent_tasks_raw
+    ]
+
+    results: List[SpecialistAnalysis] = []
+    specialist_results: List[Dict[str, Any]] = []
+
+    # Filter enabled agent tasks
+    enabled_tasks = []
+    for task in agent_tasks:
+        config = agent_configs.get(task.agent_id)
+        if config and config.enabled:
+            enabled_tasks.append(task)
+        else:
+            specialist_results.append(_build_llm_failed_shell_static(
+                task.agent_id, task.category
+            ).model_dump())
+
+    if enabled_tasks:
+        try:
+            gathered = await asyncio.wait_for(
+                asyncio.gather(*[
+                    SpecialistAgent(agent_configs[t.agent_id]).run(t, run_id)
+                    for t in enabled_tasks
+                ], return_exceptions=True),
+                timeout=60.0,
+            )
+        except asyncio.TimeoutError:
+            gathered = [TimeoutError("fanout total timeout") for _ in enabled_tasks]
+
+        evidence_items = state.get("evidence_items", [])
+
+        for task, result in zip(enabled_tasks, gathered):
+            if isinstance(result, Exception):
+                result = _build_llm_failed_shell_static(task.agent_id, task.category)
+
+            # Atomic agent-level write
+            agent_evidence: List[EvidenceItem] = []
+            for tool_name, raw_data in result.raw_tool_results.items():
+                agent_evidence.append(_build_raw_evidence_item(
+                    tool_name, raw_data, result, run_id
+                ))
+
+            try:
+                evidence_items.extend(agent_evidence)
+                specialist_results.append(result.model_dump())
+            except Exception:
+                evidence_set = set(id(e) for e in agent_evidence)
+                evidence_items = [e for e in evidence_items if id(e) not in evidence_set]
+                specialist_results.append(_build_llm_failed_shell_static(
+                    task.agent_id, task.category
+                ).model_dump())
+
+        state["evidence_items"] = evidence_items
+
+    state["specialist_analyses"] = specialist_results
+    state["step_count"] = state.get("step_count", 0) + 1
+    return state
+
+
+def _fallback_from_plan_to_agent_tasks(plan_tasks: List[Dict], ticket: Any) -> List[Dict[str, Any]]:
+    category_map = {
+        "k8s": "k8s", "db": "db", "logs": "logs",
+        "metrics": "metrics", "deployments": "deployments",
+    }
+    seen_categories = set()
+    agent_tasks = []
+
+    for pt in plan_tasks:
+        cat = pt.get("category", "")
+        mapped = category_map.get(cat)
+        if mapped and mapped not in seen_categories:
+            seen_categories.add(mapped)
+            service = ticket.service if hasattr(ticket, "service") else ticket.get("service", "unknown")
+            env = ticket.env if hasattr(ticket, "env") else ticket.get("env", "unknown")
+            agent_tasks.append(AgentTask(
+                agent_id=f"{mapped}_specialist",
+                category=mapped,
+                service=service,
+                env=env,
+            ).model_dump())
+
+    return agent_tasks
+
+
+def _build_raw_evidence_item(
+    tool_name: str,
+    raw_data: Any,
+    analysis: SpecialistAnalysis,
+    run_id: str,
+) -> EvidenceItem:
+    return EvidenceItem(
+        evidence_id=f"ev_{tool_name}_{analysis.agent_id}_{uuid.uuid4().hex[:8]}",
+        tool_name=tool_name,
+        category=analysis.agent_category,
+        source_ref=f"{analysis.agent_category}-{run_id}",
+        summary=f"Raw data from {tool_name} (Agent: {analysis.agent_id})",
+        raw_payload=raw_data,
+        confidence=0.7,
+        freshness_score=0.8,
+        completeness_score=0.6,
+    )
 
 
 async def _call_tool_async(tool_name: str, params: Dict[str, Any], run_id: str):
@@ -575,6 +768,13 @@ async def runbook_node(state: IncidentAgentState) -> IncidentAgentState:
 
 
 def evidence_aggregate_node(state: IncidentAgentState) -> IncidentAgentState:
+    settings = get_settings()
+
+    if settings.agent_feature_specialist_pool and state.get("specialist_analyses"):
+        return _evidence_aggregate_v2(state)
+
+    return _original_evidence_aggregate(state)
+def _original_evidence_aggregate(state: IncidentAgentState) -> IncidentAgentState:
     items = state.get("evidence_items", [])
     collection_results_raw = state.get("evidence_collection_results", [])
 
@@ -615,6 +815,44 @@ def evidence_aggregate_node(state: IncidentAgentState) -> IncidentAgentState:
     state["evidence_quality_score"] = quality_score
     state["missing_evidence_categories"] = missing
     state["failed_evidence_tools"] = failed_tools
+    state["step_count"] = state.get("step_count", 0) + 1
+
+    return state
+
+
+def _evidence_aggregate_v2(state: IncidentAgentState) -> IncidentAgentState:
+    from app.graph.nodes.aggregator import (
+        _build_correlation_graph,
+        _infer_causal_chains,
+        _detect_cross_agent_contradictions,
+        _compute_weighted_quality,
+        _format_global_summary,
+    )
+
+    analyses_raw: List[Dict[str, Any]] = state.get("specialist_analyses", [])
+
+    analyses: List[SpecialistAnalysis] = []
+    for a in analyses_raw:
+        if isinstance(a, dict):
+            try:
+                analyses.append(SpecialistAnalysis(**a))
+            except Exception:
+                continue
+        elif isinstance(a, SpecialistAnalysis):
+            analyses.append(a)
+
+    graph = _build_correlation_graph(analyses)
+    causal_chains = _infer_causal_chains(graph, analyses)
+    contradictions = _detect_cross_agent_contradictions(analyses)
+    quality_score = _compute_weighted_quality(analyses)
+    summary = _format_global_summary(analyses, quality_score, contradictions, causal_chains)
+
+    state["evidence_summary"] = summary
+    state["evidence_quality_score"] = quality_score
+    state["cross_agent_causal_chains"] = causal_chains
+    state["contradiction_signals"] = contradictions
+    state["missing_evidence_categories"] = []
+    state["failed_evidence_tools"] = []
     state["step_count"] = state.get("step_count", 0) + 1
 
     return state

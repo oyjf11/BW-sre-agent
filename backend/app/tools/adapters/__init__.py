@@ -602,6 +602,322 @@ async def mock_query_db_variables(**kwargs) -> Dict[str, Any]:
     }
 
 
+async def query_k8s_nodes(service: str, env: str, **kwargs) -> Dict[str, Any]:
+    return {
+        "service": service,
+        "env": env,
+        "nodes": [
+            {
+                "name": "node-a",
+                "role": "worker",
+                "conditions": {"Ready": "True", "MemoryPressure": "False", "DiskPressure": "False", "PIDPressure": "False"},
+                "capacity_cpu": "8",
+                "capacity_memory": "32Gi",
+                "allocatable_cpu": "7800m",
+                "allocatable_memory": "28Gi",
+                "kubelet_version": "v1.28.0",
+                "kernel_version": "5.10.0",
+                "container_runtime": "containerd://1.6.21",
+                "unschedulable": False,
+            },
+            {
+                "name": "node-b",
+                "role": "worker",
+                "conditions": {"Ready": "True", "MemoryPressure": "True", "DiskPressure": "False", "PIDPressure": "False"},
+                "capacity_cpu": "8",
+                "capacity_memory": "32Gi",
+                "allocatable_cpu": "7800m",
+                "allocatable_memory": "28Gi",
+                "kubelet_version": "v1.28.0",
+                "kernel_version": "5.10.0",
+                "container_runtime": "containerd://1.6.21",
+                "unschedulable": False,
+            },
+            {
+                "name": "node-c",
+                "role": "control-plane",
+                "conditions": {"Ready": "True", "MemoryPressure": "False", "DiskPressure": "False", "PIDPressure": "False"},
+                "capacity_cpu": "4",
+                "capacity_memory": "16Gi",
+                "allocatable_cpu": "3800m",
+                "allocatable_memory": "12Gi",
+                "kubelet_version": "v1.28.0",
+                "kernel_version": "5.10.0",
+                "container_runtime": "containerd://1.6.21",
+                "unschedulable": True,
+            },
+        ],
+        "count": 3,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_services(service: str, env: str, namespace: str = "default", **kwargs) -> Dict[str, Any]:
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "services": [
+            {
+                "name": service,
+                "type": "ClusterIP",
+                "cluster_ip": "10.43.100.10",
+                "external_ip": [],
+                "ports": [
+                    {"name": "http", "port": 8080, "target_port": "8080", "protocol": "TCP"},
+                    {"name": "metrics", "port": 9090, "target_port": "9090", "protocol": "TCP"},
+                ],
+                "selector": {"app": service},
+                "lb_status": None,
+            },
+            {
+                "name": f"{service}-external",
+                "type": "LoadBalancer",
+                "cluster_ip": "10.43.100.20",
+                "external_ip": ["192.168.1.100"],
+                "ports": [
+                    {"name": "https", "port": 443, "target_port": "8443", "protocol": "TCP"},
+                ],
+                "selector": {"app": service},
+                "lb_status": [{"ip": "192.168.1.100", "hostname": "lb.example.com"}],
+            },
+        ],
+        "count": 2,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_hpa(service: str, env: str, namespace: str = "default", deployment_name: str = "", **kwargs) -> Dict[str, Any]:
+    deployment = deployment_name or service
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "deployment_name": deployment,
+        "hpas": [
+            {
+                "name": f"{deployment}-hpa",
+                "min_replicas": 2,
+                "max_replicas": 10,
+                "current_replicas": 4,
+                "desired_replicas": 4,
+                "current_metrics": [
+                    {"type": "Resource", "resource_name": "cpu", "current_average_utilization": 65},
+                ],
+                "conditions": [
+                    {"type": "AbleToScale", "status": "True", "reason": "ReadyForNewScale", "message": ""},
+                    {"type": "ScalingActive", "status": "True", "reason": "ValidMetricFound", "message": ""},
+                ],
+            }
+        ],
+        "count": 1,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_ingresses(service: str, env: str, namespace: str = "default", **kwargs) -> Dict[str, Any]:
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "ingresses": [
+            {
+                "name": f"{service}-ingress",
+                "namespace": namespace,
+                "hosts": [f"{service}.example.com", f"api.{service}.example.com"],
+                "tls_enabled": True,
+                "ingress_class": "nginx",
+                "lb_status": [{"ip": "192.168.2.100", "hostname": "ingress.example.com"}],
+            }
+        ],
+        "count": 1,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_statefulsets(service: str, env: str, namespace: str = "default", **kwargs) -> Dict[str, Any]:
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "statefulsets": [
+            {
+                "name": service,
+                "replicas": 3,
+                "ready_replicas": 3,
+                "current_replicas": 3,
+                "current_revision": f"{service}-v1-abc12",
+                "update_revision": f"{service}-v1-abc12",
+                "status": "running",
+            }
+        ],
+        "count": 1,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_daemonsets(service: str, env: str, namespace: str = "default", **kwargs) -> Dict[str, Any]:
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "daemonsets": [
+            {
+                "name": f"{service}-agent",
+                "desired_number_scheduled": 3,
+                "current_number_scheduled": 3,
+                "number_ready": 3,
+                "number_available": 3,
+                "status": "running",
+            }
+        ],
+        "count": 1,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_configmaps(service: str, env: str, namespace: str = "default", **kwargs) -> Dict[str, Any]:
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "configmaps": [
+            {
+                "name": f"{service}-config",
+                "data_keys": ["application.yml", "logback.xml", "features.json"],
+                "binary_data_keys": [],
+                "data_sample": {
+                    "application.yml": "server:\n  port: 8080\nspring:\n  profiles:\n    active: prod\ndb:\n  max_pool_size: 50",
+                    "logback.xml": "<configuration><root level=\"INFO\"/></configuration>",
+                    "features.json": '{"feature_a": true, "feature_b": false}',
+                },
+                "immutable": False,
+            }
+        ],
+        "count": 1,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_resource_quotas(service: str, env: str, namespace: str = "default", **kwargs) -> Dict[str, Any]:
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "resource_quotas": [
+            {
+                "name": "compute-resources",
+                "hard": {
+                    "limits.cpu": "20",
+                    "limits.memory": "64Gi",
+                    "requests.cpu": "10",
+                    "requests.memory": "32Gi",
+                    "count/pods": "100",
+                },
+                "used": {
+                    "limits.cpu": "12",
+                    "limits.memory": "38Gi",
+                    "requests.cpu": "7",
+                    "requests.memory": "22Gi",
+                    "count/pods": "45",
+                },
+            }
+        ],
+        "count": 1,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_pvc(service: str, env: str, namespace: str = "default", **kwargs) -> Dict[str, Any]:
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "pvcs": [
+            {
+                "name": f"{service}-data",
+                "status": "Bound",
+                "capacity": "100Gi",
+                "access_modes": ["ReadWriteOnce"],
+                "storage_class": "ssd",
+                "volume_name": "pvc-data-abc123",
+            },
+            {
+                "name": f"{service}-cache",
+                "status": "Bound",
+                "capacity": "50Gi",
+                "access_modes": ["ReadWriteOnce"],
+                "storage_class": "ssd",
+                "volume_name": "pvc-cache-def456",
+            },
+        ],
+        "count": 2,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_replicasets(service: str, env: str, namespace: str = "default", deployment_name: str = "", **kwargs) -> Dict[str, Any]:
+    deployment = deployment_name or service
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "deployment_name": deployment,
+        "replicasets": [
+            {
+                "name": f"{deployment}-6b8b8d9d7f",
+                "replicas": 3,
+                "ready_replicas": 3,
+                "available_replicas": 3,
+                "images": [f"{service}:v1.5.0"],
+                "owner_references": [{"kind": "Deployment", "name": deployment}],
+                "creation_timestamp": (datetime.utcnow() - timedelta(hours=2)).isoformat(),
+            },
+            {
+                "name": f"{deployment}-5a7a7c8c6e",
+                "replicas": 0,
+                "ready_replicas": 0,
+                "available_replicas": 0,
+                "images": [f"{service}:v1.4.0"],
+                "owner_references": [{"kind": "Deployment", "name": deployment}],
+                "creation_timestamp": (datetime.utcnow() - timedelta(hours=48)).isoformat(),
+            },
+        ],
+        "count": 2,
+        "response_size_limit_kb": 128,
+    }
+
+
+async def query_k8s_jobs(service: str, env: str, namespace: str = "default", **kwargs) -> Dict[str, Any]:
+    return {
+        "service": service,
+        "env": env,
+        "namespace": namespace,
+        "jobs": [
+            {
+                "name": f"{service}-data-migration",
+                "namespace": namespace,
+                "completions": 1,
+                "parallelism": 1,
+                "succeeded": 1,
+                "active": 0,
+                "failed": 0,
+                "conditions": [{"type": "Complete", "status": "True"}],
+            },
+            {
+                "name": f"{service}-cleanup",
+                "namespace": namespace,
+                "schedule": "0 3 * * *",
+                "suspend": False,
+                "last_schedule_time": (datetime.utcnow() - timedelta(hours=6)).isoformat(),
+                "active_jobs": 0,
+            },
+        ],
+        "count": 2,
+        "response_size_limit_kb": 128,
+    }
+
+
 async def mock_write_rca_to_oss(
     run_id: str,
     service: str = "",

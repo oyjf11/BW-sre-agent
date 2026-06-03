@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+.kube/
 
 # 数据库
 *.db

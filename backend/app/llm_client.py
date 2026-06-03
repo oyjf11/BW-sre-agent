@@ -96,6 +96,144 @@ class LLMClient:
             tracer.end_span(span_id, status="error", error=str(exc))
             raise
 
+    async def complete_async(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+    ) -> Dict[str, Any]:
+        provider = _get_llm_provider()
+        if provider == "deepseek":
+            return await self._deepseek_chat(messages, tools, temperature, max_tokens)
+        elif provider == "minimax":
+            return await self._minimax_chat(messages, tools, temperature, max_tokens)
+        else:
+            return await self._openai_chat(messages, tools, temperature, max_tokens)
+
+    async def _openai_chat(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]],
+        temperature: float,
+        max_tokens: int,
+    ) -> Dict[str, Any]:
+        if not self.api_key:
+            return {"content": self._fallback_complete("", ""), "tool_calls": None}
+
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, headers=headers) as resp:
+                    if resp.status != 200:
+                        logger.error(f"OpenAI chat error: {resp.status}")
+                        raise RuntimeError(f"OpenAI chat error: {resp.status}")
+                    result = await resp.json()
+            choice = result.get("choices", [{}])[0]
+            message = choice.get("message", {})
+            content = message.get("content") or ""
+            tool_calls = message.get("tool_calls")
+            return {"content": content, "tool_calls": tool_calls}
+        except Exception as e:
+            logger.error(f"OpenAI chat failed: {e}")
+            raise
+
+    async def _deepseek_chat(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]],
+        temperature: float,
+        max_tokens: int,
+    ) -> Dict[str, Any]:
+        if not self.deepseek_api_key:
+            return {"content": self._fallback_complete("", ""), "tool_calls": None}
+
+        url = f"{self.deepseek_api_base}/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.deepseek_api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.deepseek_model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, headers=headers) as resp:
+                    if resp.status != 200:
+                        logger.error(f"DeepSeek chat error: {resp.status}")
+                        raise RuntimeError(f"DeepSeek chat error: {resp.status}")
+                    result = await resp.json()
+            choice = result.get("choices", [{}])[0]
+            message = choice.get("message", {})
+            content = message.get("content") or ""
+            tool_calls = message.get("tool_calls")
+            return {"content": content, "tool_calls": tool_calls}
+        except Exception as e:
+            logger.error(f"DeepSeek chat failed: {e}")
+            raise
+
+    async def _minimax_chat(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]],
+        temperature: float,
+        max_tokens: int,
+    ) -> Dict[str, Any]:
+        if not self.minimax_api_key or not self.minimax_group_id:
+            return {"content": self._fallback_complete("", ""), "tool_calls": None}
+
+        url = f"{self.minimax_api_base}/text/chatcompletion_v2"
+        headers = {
+            "Authorization": f"Bearer {self.minimax_api_key}",
+            "Content-Type": "application/json",
+        }
+        payload: Dict[str, Any] = {
+            "model": self.minimax_model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, headers=headers) as resp:
+                    if resp.status != 200:
+                        logger.error(f"MiniMax chat error: {resp.status}")
+                        raise RuntimeError(f"MiniMax chat error: {resp.status}")
+                    result = await resp.json()
+            choice = result.get("choices", [{}])[0]
+            message = choice.get("message", {})
+            content = message.get("content") or ""
+            tool_calls = message.get("tool_calls")
+            return {"content": content, "tool_calls": tool_calls}
+        except Exception as e:
+            logger.error(f"MiniMax chat failed: {e}")
+            raise
+
     
     async def _minimax_complete(
         self, 

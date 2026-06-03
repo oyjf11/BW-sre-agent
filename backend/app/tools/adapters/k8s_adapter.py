@@ -287,6 +287,582 @@ async def query_k8s_pod_logs_summary(
     return _truncate_logs_summary(payload)
 
 
+async def query_k8s_nodes(
+    service: str,
+    env: str,
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    nodes = await asyncio.to_thread(client.list_nodes)
+    serialized = []
+    for node in nodes:
+        conditions = {}
+        for cond in (node.status.conditions or []):
+            if cond is None:
+                continue
+            conditions[str(cond.type)] = str(cond.status)
+
+        capacity = node.status.capacity or {}
+        allocatable = node.status.allocatable or {}
+        labels = node.metadata.labels or {}
+        role = labels.get(
+            "node-role.kubernetes.io/control-plane",
+            labels.get(
+                "node-role.kubernetes.io/master",
+                labels.get("kubernetes.io/role", "worker"),
+            ),
+        )
+
+        serialized.append({
+            "name": node.metadata.name,
+            "role": role,
+            "conditions": conditions,
+            "capacity_cpu": str(capacity.get("cpu", "")),
+            "capacity_memory": str(capacity.get("memory", "")),
+            "allocatable_cpu": str(allocatable.get("cpu", "")),
+            "allocatable_memory": str(allocatable.get("memory", "")),
+            "kubelet_version": node.status.node_info.kubelet_version if node.status.node_info else "",
+            "kernel_version": node.status.node_info.kernel_version if node.status.node_info else "",
+            "container_runtime": node.status.node_info.container_runtime_version if node.status.node_info else "",
+            "unschedulable": bool(node.spec.unschedulable),
+        })
+    return {
+        "service": service,
+        "env": env,
+        "nodes": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_services(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, **kwargs},
+    )
+    target["namespace"], _ = client.resolve_target(service, target["namespace"], "")
+    ns = target["namespace"]
+
+    svc_list = await asyncio.to_thread(client.list_services, ns)
+    svc_lower = service.lower()
+    serialized = []
+    for svc in svc_list:
+        name = svc.metadata.name.lower()
+        if svc_lower not in name:
+            continue
+        ports = []
+        for port in (svc.spec.ports or []):
+            ports.append({
+                "name": port.name or "",
+                "port": port.port,
+                "target_port": str(port.target_port) if port.target_port else "",
+                "protocol": port.protocol or "TCP",
+            })
+        lb_status = None
+        if svc.status.load_balancer and svc.status.load_balancer.ingress:
+            lb_status = [
+                {"ip": ing.ip, "hostname": ing.hostname}
+                for ing in svc.status.load_balancer.ingress
+            ]
+        serialized.append({
+            "name": svc.metadata.name,
+            "type": svc.spec.type,
+            "cluster_ip": svc.spec.cluster_ip,
+            "external_ip": svc.spec.external_i_ps or [],
+            "ports": ports,
+            "selector": svc.spec.selector or {},
+            "lb_status": lb_status,
+        })
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "services": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_hpa(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    deployment_name: str = "",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, "deployment_name": deployment_name, **kwargs},
+    )
+    target["namespace"], target["deployment_name"] = client.resolve_target(
+        service, target["namespace"], target["deployment_name"],
+    )
+    ns = target["namespace"]
+    dep_name = target["deployment_name"]
+
+    hpas = await asyncio.to_thread(client.list_hpas, ns)
+    serialized = []
+    for hpa in hpas:
+        ref = hpa.spec.scale_target_ref
+        if not ref or dep_name.lower() not in (ref.name or "").lower():
+            continue
+
+        current_metrics = []
+        if hasattr(hpa.status, "current_metrics") and hpa.status.current_metrics:
+            for m in hpa.status.current_metrics:
+                entry = {"type": str(m.type)}
+                if m.resource:
+                    entry["resource_name"] = m.resource.name
+                    if m.resource.current and m.resource.current.average_utilization:
+                        entry["current_average_utilization"] = m.resource.current.average_utilization
+                    if m.resource.current and m.resource.current.average_value:
+                        entry["current_average_value"] = m.resource.current.average_value
+                current_metrics.append(entry)
+        elif hasattr(hpa.status, "current_cpu_utilization_percentage") and hpa.status.current_cpu_utilization_percentage is not None:
+            current_metrics.append({
+                "type": "Resource",
+                "resource_name": "cpu",
+                "current_average_utilization": hpa.status.current_cpu_utilization_percentage,
+            })
+
+        conditions = []
+        raw_conditions = getattr(hpa.status, "conditions", None) or []
+        for cond in raw_conditions:
+            if cond is None:
+                continue
+            conditions.append({
+                "type": str(cond.type),
+                "status": str(cond.status),
+                "reason": cond.reason or "",
+                "message": cond.message or "",
+            })
+
+        serialized.append({
+            "name": hpa.metadata.name,
+            "min_replicas": hpa.spec.min_replicas,
+            "max_replicas": hpa.spec.max_replicas,
+            "current_replicas": hpa.status.current_replicas,
+            "desired_replicas": hpa.status.desired_replicas,
+            "current_metrics": current_metrics,
+            "conditions": conditions,
+        })
+
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "deployment_name": dep_name,
+        "hpas": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_ingresses(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, **kwargs},
+    )
+    target["namespace"], _ = client.resolve_target(service, target["namespace"], "")
+    ns = target["namespace"]
+
+    ingresses = await asyncio.to_thread(client.list_ingresses, ns)
+    svc_lower = service.lower()
+    serialized = []
+    for ing in ingresses:
+        ing_name = ing.metadata.name.lower()
+        svc_match = svc_lower in ing_name
+
+        hosts = []
+        tls_enabled = False
+        for rule in (ing.spec.rules or []):
+            if rule.host:
+                hosts.append(rule.host)
+            if rule.http:
+                for path in (rule.http.paths or []):
+                    if path.backend:
+                        backend_svc = (
+                            getattr(path.backend.service, "name", None)
+                            or getattr(path.backend, "service_name", None)
+                            or getattr(path.backend, "serviceName", None)
+                        )
+                        if backend_svc and svc_lower in backend_svc.lower():
+                            svc_match = True
+
+        if ing.spec.tls:
+            tls_enabled = True
+
+        lb_status = None
+        if ing.status.load_balancer and ing.status.load_balancer.ingress:
+            lb_status = [
+                {"ip": lb_ing.ip, "hostname": lb_ing.hostname}
+                for lb_ing in ing.status.load_balancer.ingress
+            ]
+
+        ingress_class = ""
+        if hasattr(ing.spec, "ingress_class_name") and ing.spec.ingress_class_name:
+            ingress_class = ing.spec.ingress_class_name
+        else:
+            annotations = ing.metadata.annotations or {}
+            ingress_class = annotations.get("kubernetes.io/ingress.class", "")
+
+        if svc_match:
+            serialized.append({
+                "name": ing.metadata.name,
+                "namespace": ns,
+                "hosts": hosts,
+                "tls_enabled": tls_enabled,
+                "ingress_class": ingress_class,
+                "lb_status": lb_status,
+            })
+
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "ingresses": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_statefulsets(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, **kwargs},
+    )
+    target["namespace"], _ = client.resolve_target(service, target["namespace"], "")
+    ns = target["namespace"]
+
+    sts_list = await asyncio.to_thread(client.list_statefulsets, ns)
+    svc_lower = service.lower()
+    serialized = []
+    for sts in sts_list:
+        if svc_lower not in sts.metadata.name.lower():
+            continue
+        replicas = sts.spec.replicas or 0
+        ready = sts.status.ready_replicas or 0
+        if ready >= replicas and replicas > 0:
+            health = "running"
+        elif ready > 0:
+            health = "degraded"
+        else:
+            health = "unavailable"
+        serialized.append({
+            "name": sts.metadata.name,
+            "replicas": replicas,
+            "ready_replicas": sts.status.ready_replicas or 0,
+            "current_replicas": sts.status.current_replicas or 0,
+            "current_revision": sts.status.current_revision or "",
+            "update_revision": sts.status.update_revision or "",
+            "status": health,
+        })
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "statefulsets": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_daemonsets(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, **kwargs},
+    )
+    target["namespace"], _ = client.resolve_target(service, target["namespace"], "")
+    ns = target["namespace"]
+
+    ds_list = await asyncio.to_thread(client.list_daemonsets, ns)
+    svc_lower = service.lower()
+    serialized = []
+    for ds in ds_list:
+        if svc_lower not in ds.metadata.name.lower():
+            continue
+        desired = ds.status.desired_number_scheduled or 0
+        ready = ds.status.number_ready or 0
+        if ready >= desired and desired > 0:
+            health = "running"
+        elif ready > 0:
+            health = "degraded"
+        else:
+            health = "unavailable"
+        serialized.append({
+            "name": ds.metadata.name,
+            "desired_number_scheduled": ds.status.desired_number_scheduled or 0,
+            "current_number_scheduled": ds.status.current_number_scheduled or 0,
+            "number_ready": ds.status.number_ready or 0,
+            "number_available": ds.status.number_available or 0,
+            "status": health,
+        })
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "daemonsets": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_configmaps(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, **kwargs},
+    )
+    target["namespace"], _ = client.resolve_target(service, target["namespace"], "")
+    ns = target["namespace"]
+
+    cm_list = await asyncio.to_thread(client.list_configmaps, ns)
+    svc_lower = service.lower()
+    serialized = []
+    SENSITIVE_KEYS = {"password", "secret", "token", "api_key", "access_key", "private_key", "key", "cert", "tls"}
+    for cm in cm_list:
+        if svc_lower not in cm.metadata.name.lower():
+            continue
+        data_keys = list((cm.data or {}).keys())
+        binary_keys = list((cm.binary_data or {}).keys())
+        data_sample = {}
+        for k, v in (cm.data or {}).items():
+            k_lower = k.lower()
+            if any(sk in k_lower for sk in SENSITIVE_KEYS):
+                data_sample[k] = "***REDACTED***"
+            else:
+                data_sample[k] = v[:500] if len(v) > 500 else v
+        serialized.append({
+            "name": cm.metadata.name,
+            "data_keys": data_keys,
+            "binary_data_keys": binary_keys,
+            "data_sample": data_sample,
+            "immutable": bool(cm.immutable) if cm.immutable else False,
+        })
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "configmaps": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_resource_quotas(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, **kwargs},
+    )
+    target["namespace"], _ = client.resolve_target(service, target["namespace"], "")
+    ns = target["namespace"]
+
+    quotas = await asyncio.to_thread(client.list_resource_quotas, ns)
+    serialized = []
+    for q in quotas:
+        hard = {}
+        used = {}
+        for resource, quantity in (q.status.hard or {}).items():
+            hard[str(resource)] = str(quantity)
+        for resource, quantity in (q.status.used or {}).items():
+            used[str(resource)] = str(quantity)
+        serialized.append({
+            "name": q.metadata.name,
+            "hard": hard,
+            "used": used,
+        })
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "resource_quotas": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_pvc(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, **kwargs},
+    )
+    target["namespace"], _ = client.resolve_target(service, target["namespace"], "")
+    ns = target["namespace"]
+
+    pvcs = await asyncio.to_thread(client.list_pvcs, ns)
+    svc_lower = service.lower()
+    serialized = []
+    for pvc in pvcs:
+        if svc_lower not in pvc.metadata.name.lower():
+            continue
+        capacity_storage = ""
+        if pvc.status.capacity and "storage" in pvc.status.capacity:
+            capacity_storage = str(pvc.status.capacity["storage"])
+        serialized.append({
+            "name": pvc.metadata.name,
+            "status": pvc.status.phase,
+            "capacity": capacity_storage,
+            "access_modes": pvc.spec.access_modes or [],
+            "storage_class": pvc.spec.storage_class_name or "",
+            "volume_name": pvc.spec.volume_name or "",
+        })
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "pvcs": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_replicasets(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    deployment_name: str = "",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, "deployment_name": deployment_name, **kwargs},
+    )
+    target["namespace"], target["deployment_name"] = client.resolve_target(
+        service, target["namespace"], target["deployment_name"],
+    )
+    ns = target["namespace"]
+    dep_name = target["deployment_name"]
+
+    rs_list = await asyncio.to_thread(client.list_replicasets, ns)
+    serialized = []
+    for rs in rs_list:
+        owner_refs = rs.metadata.owner_references or []
+        owned_by = [
+            {"kind": ref.kind, "name": ref.name}
+            for ref in owner_refs if ref and ref.name.lower() == dep_name.lower()
+        ] if owner_refs else []
+        if dep_name.lower() not in rs.metadata.name.lower() and not owned_by:
+            continue
+        containers = rs.spec.template.spec.containers or []
+        images = [c.image for c in containers if c.image]
+        timestamp = rs.metadata.creation_timestamp.isoformat() if rs.metadata.creation_timestamp else None
+        serialized.append({
+            "name": rs.metadata.name,
+            "replicas": rs.status.replicas or 0,
+            "ready_replicas": rs.status.ready_replicas or 0,
+            "available_replicas": rs.status.available_replicas or 0,
+            "images": images,
+            "owner_references": [
+                {"kind": ref.kind, "name": ref.name}
+                for ref in (rs.metadata.owner_references or [])
+                if ref
+            ],
+            "creation_timestamp": timestamp,
+        })
+
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "deployment_name": dep_name,
+        "replicasets": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
+async def query_k8s_jobs(
+    service: str,
+    env: str,
+    namespace: str = "default",
+    **kwargs,
+) -> Dict[str, Any]:
+    client = K8sClient()
+    target = _resolve_k8s_target(
+        service, env, {"namespace": namespace, **kwargs},
+    )
+    target["namespace"], _ = client.resolve_target(service, target["namespace"], "")
+    ns = target["namespace"]
+
+    jobs = await asyncio.to_thread(client.list_jobs, ns)
+    cronjobs = await asyncio.to_thread(client.list_cronjobs, ns)
+    svc_lower = service.lower()
+    serialized = []
+    for job in jobs:
+        if svc_lower not in job.metadata.name.lower():
+            continue
+        conditions = []
+        for cond in (job.status.conditions or []):
+            if cond is None:
+                continue
+            conditions.append({"type": str(cond.type), "status": str(cond.status)})
+        serialized.append({
+            "name": job.metadata.name,
+            "namespace": ns,
+            "completions": job.spec.completions,
+            "parallelism": job.spec.parallelism,
+            "succeeded": job.status.succeeded or 0,
+            "active": job.status.active or 0,
+            "failed": job.status.failed or 0,
+            "conditions": conditions,
+        })
+    for cj in cronjobs:
+        if svc_lower not in cj.metadata.name.lower():
+            continue
+        last_schedule = cj.status.last_schedule_time.isoformat() if cj.status.last_schedule_time else None
+        serialized.append({
+            "name": cj.metadata.name,
+            "namespace": ns,
+            "schedule": cj.spec.schedule,
+            "suspend": bool(cj.spec.suspend),
+            "last_schedule_time": last_schedule,
+            "active_jobs": len(cj.status.active or []),
+        })
+
+    return {
+        "service": service,
+        "env": env,
+        "namespace": ns,
+        "jobs": serialized,
+        "count": len(serialized),
+        "response_size_limit_kb": RESPONSE_SIZE_LIMIT_KB,
+    }
+
+
 async def query_deployments(
     service: str,
     env: str,

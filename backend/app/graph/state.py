@@ -73,3 +73,8 @@ class IncidentAgentState(TypedDict, total=False):
     user_context: Optional[Dict[str, Any]]
     # Internal resume control
     _resume_from_node: Optional[str]
+    # Specialist Agent Pool (v2)
+    agent_tasks: List[Dict[str, Any]]
+    specialist_analyses: List[Dict[str, Any]]
+    cross_agent_causal_chains: List[Dict[str, Any]]
+    contradiction_signals: List[Dict[str, Any]]

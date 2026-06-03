@@ -1,5 +1,6 @@
 import logging
 from functools import lru_cache
+from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
 
 from app.core.config import get_settings
@@ -45,6 +46,14 @@ def _get_api_clients(config_path: str, context: str):
         k8s_client_lib.CoreV1Api(),
         source,
     )
+
+
+def _dict_to_obj(data):
+    if isinstance(data, dict):
+        return SimpleNamespace(**{k: _dict_to_obj(v) for k, v in data.items()})
+    if isinstance(data, list):
+        return [_dict_to_obj(item) for item in data]
+    return data
 
 
 class K8sClient:
@@ -148,6 +157,109 @@ class K8sClient:
             tail_lines=tail_lines,
             timestamps=True,
         )
+
+    def list_nodes(self) -> list:
+        _, core_api, _ = self._apis()
+        return core_api.list_node().items
+
+    def list_services(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        _, core_api, _ = self._apis()
+        return core_api.list_namespaced_service(namespace=namespace).items
+
+    def list_hpas(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        self._apis()
+        try:
+            return k8s_client_lib.AutoscalingV2Api().list_namespaced_horizontal_pod_autoscaler(
+                namespace=namespace
+            ).items
+        except k8s_client_lib.rest.ApiException:
+            return k8s_client_lib.AutoscalingV1Api().list_namespaced_horizontal_pod_autoscaler(
+                namespace=namespace
+            ).items
+
+    def list_ingresses(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        self._apis()
+        try:
+            return k8s_client_lib.NetworkingV1Api().list_namespaced_ingress(
+                namespace=namespace
+            ).items
+        except k8s_client_lib.rest.ApiException:
+            _, core_api, _ = self._apis()
+            resp = core_api.api_client.call_api(
+                f"/apis/networking.k8s.io/v1beta1/namespaces/{namespace}/ingresses",
+                "GET",
+                {},
+                [],
+                {"Accept": "application/json"},
+                _return_http_data_only=True,
+            )
+            items = resp.get("items", []) if isinstance(resp, dict) else []
+            return [_dict_to_obj(item) for item in items]
+
+    def list_statefulsets(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        apps_api, _, _ = self._apis()
+        return apps_api.list_namespaced_stateful_set(namespace=namespace).items
+
+    def list_daemonsets(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        apps_api, _, _ = self._apis()
+        return apps_api.list_namespaced_daemon_set(namespace=namespace).items
+
+    def list_configmaps(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        _, core_api, _ = self._apis()
+        return core_api.list_namespaced_config_map(namespace=namespace).items
+
+    def get_configmap(self, namespace: str, name: str):
+        self.ensure_namespace_allowed(namespace)
+        _, core_api, _ = self._apis()
+        return core_api.read_namespaced_config_map(name=name, namespace=namespace)
+
+    def list_resource_quotas(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        _, core_api, _ = self._apis()
+        return core_api.list_namespaced_resource_quota(namespace=namespace).items
+
+    def list_pvcs(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        _, core_api, _ = self._apis()
+        return core_api.list_namespaced_persistent_volume_claim(
+            namespace=namespace
+        ).items
+
+    def list_replicasets(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        apps_api, _, _ = self._apis()
+        return apps_api.list_namespaced_replica_set(namespace=namespace).items
+
+    def list_jobs(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        self._apis()
+        return k8s_client_lib.BatchV1Api().list_namespaced_job(namespace=namespace).items
+
+    def list_cronjobs(self, namespace: str) -> list:
+        self.ensure_namespace_allowed(namespace)
+        self._apis()
+        try:
+            return k8s_client_lib.BatchV1Api().list_namespaced_cron_job(
+                namespace=namespace
+            ).items
+        except k8s_client_lib.rest.ApiException:
+            _, core_api, _ = self._apis()
+            resp = core_api.api_client.call_api(
+                f"/apis/batch/v1beta1/namespaces/{namespace}/cronjobs",
+                "GET",
+                {},
+                [],
+                {"Accept": "application/json"},
+                _return_http_data_only=True,
+            )
+            items = resp.get("items", []) if isinstance(resp, dict) else []
+            return [_dict_to_obj(item) for item in items]
 
     def list_all_deployments(self) -> list:
         deployments = []

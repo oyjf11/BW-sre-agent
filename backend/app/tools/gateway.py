@@ -22,6 +22,17 @@ from app.tools.adapters import query_k8s_deployment_status as mock_query_k8s_dep
 from app.tools.adapters import query_k8s_pods as mock_query_k8s_pods
 from app.tools.adapters import query_k8s_events as mock_query_k8s_events
 from app.tools.adapters import query_k8s_pod_logs_summary as mock_query_k8s_pod_logs_summary
+from app.tools.adapters import query_k8s_nodes as mock_query_k8s_nodes
+from app.tools.adapters import query_k8s_services as mock_query_k8s_services
+from app.tools.adapters import query_k8s_hpa as mock_query_k8s_hpa
+from app.tools.adapters import query_k8s_ingresses as mock_query_k8s_ingresses
+from app.tools.adapters import query_k8s_statefulsets as mock_query_k8s_statefulsets
+from app.tools.adapters import query_k8s_daemonsets as mock_query_k8s_daemonsets
+from app.tools.adapters import query_k8s_configmaps as mock_query_k8s_configmaps
+from app.tools.adapters import query_k8s_resource_quotas as mock_query_k8s_resource_quotas
+from app.tools.adapters import query_k8s_pvc as mock_query_k8s_pvc
+from app.tools.adapters import query_k8s_replicasets as mock_query_k8s_replicasets
+from app.tools.adapters import query_k8s_jobs as mock_query_k8s_jobs
 from app.tools.adapters import query_lb_health_status as mock_query_lb_health_status
 from app.tools.adapters import query_lb_traffic_metrics as mock_query_lb_traffic_metrics
 from app.tools.adapters import mock_query_db_processlist
@@ -43,6 +54,17 @@ from app.tools.adapters.k8s_adapter import (
     query_k8s_events as real_query_k8s_events,
     query_k8s_pod_logs_summary as real_query_k8s_pod_logs_summary,
     query_deployments as real_query_deployments,
+    query_k8s_nodes as real_query_k8s_nodes,
+    query_k8s_services as real_query_k8s_services,
+    query_k8s_hpa as real_query_k8s_hpa,
+    query_k8s_ingresses as real_query_k8s_ingresses,
+    query_k8s_statefulsets as real_query_k8s_statefulsets,
+    query_k8s_daemonsets as real_query_k8s_daemonsets,
+    query_k8s_configmaps as real_query_k8s_configmaps,
+    query_k8s_resource_quotas as real_query_k8s_resource_quotas,
+    query_k8s_pvc as real_query_k8s_pvc,
+    query_k8s_replicasets as real_query_k8s_replicasets,
+    query_k8s_jobs as real_query_k8s_jobs,
 )
 from app.tools.adapters.slb_adapter import (
     query_lb_health_status as real_query_lb_health_status,
@@ -141,6 +163,28 @@ def select_adapter(tool_name: str):
             return real_query_k8s_events
         elif tool_name == "query_k8s_pod_logs_summary":
             return real_query_k8s_pod_logs_summary
+        elif tool_name == "query_k8s_nodes":
+            return real_query_k8s_nodes
+        elif tool_name == "query_k8s_services":
+            return real_query_k8s_services
+        elif tool_name == "query_k8s_hpa":
+            return real_query_k8s_hpa
+        elif tool_name == "query_k8s_ingresses":
+            return real_query_k8s_ingresses
+        elif tool_name == "query_k8s_statefulsets":
+            return real_query_k8s_statefulsets
+        elif tool_name == "query_k8s_daemonsets":
+            return real_query_k8s_daemonsets
+        elif tool_name == "query_k8s_configmaps":
+            return real_query_k8s_configmaps
+        elif tool_name == "query_k8s_resource_quotas":
+            return real_query_k8s_resource_quotas
+        elif tool_name == "query_k8s_pvc":
+            return real_query_k8s_pvc
+        elif tool_name == "query_k8s_replicasets":
+            return real_query_k8s_replicasets
+        elif tool_name == "query_k8s_jobs":
+            return real_query_k8s_jobs
         elif tool_name == "query_lb_health_status":
             return real_query_lb_health_status
         elif tool_name == "query_lb_traffic_metrics":
@@ -167,6 +211,17 @@ register_handler("query_k8s_deployment_status", mock_query_k8s_deployment_status
 register_handler("query_k8s_pods", mock_query_k8s_pods)
 register_handler("query_k8s_events", mock_query_k8s_events)
 register_handler("query_k8s_pod_logs_summary", mock_query_k8s_pod_logs_summary)
+register_handler("query_k8s_nodes", mock_query_k8s_nodes)
+register_handler("query_k8s_services", mock_query_k8s_services)
+register_handler("query_k8s_hpa", mock_query_k8s_hpa)
+register_handler("query_k8s_ingresses", mock_query_k8s_ingresses)
+register_handler("query_k8s_statefulsets", mock_query_k8s_statefulsets)
+register_handler("query_k8s_daemonsets", mock_query_k8s_daemonsets)
+register_handler("query_k8s_configmaps", mock_query_k8s_configmaps)
+register_handler("query_k8s_resource_quotas", mock_query_k8s_resource_quotas)
+register_handler("query_k8s_pvc", mock_query_k8s_pvc)
+register_handler("query_k8s_replicasets", mock_query_k8s_replicasets)
+register_handler("query_k8s_jobs", mock_query_k8s_jobs)
 register_handler("query_lb_health_status", mock_query_lb_health_status)
 register_handler("query_lb_traffic_metrics", mock_query_lb_traffic_metrics)
 register_handler("query_db_processlist", mock_query_db_processlist)
@@ -401,6 +456,227 @@ register_tool(
         risk_level="LOW",
         requires_approval=False,
         timeout_ms=30000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_nodes",
+        description="Query Kubernetes node status, capacity, and conditions (MemoryPressure, DiskPressure, PIDPressure)",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_services",
+        description="Query Kubernetes Service and Endpoint health for a service",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_hpa",
+        description="Query HorizontalPodAutoscaler status for a deployment (current/desired replicas, resource utilization)",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+                "deployment_name": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_ingresses",
+        description="Query Kubernetes Ingress rules, hosts, TLS config for a service",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_statefulsets",
+        description="Query Kubernetes StatefulSet status for a service (replicas, revision, health)",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_daemonsets",
+        description="Query Kubernetes DaemonSet status for a service (desired/available/ready)",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_configmaps",
+        description="Query Kubernetes ConfigMap keys and data sample for a service (sensitive values redacted)",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_resource_quotas",
+        description="Query Kubernetes ResourceQuota hard limits and used resources in a namespace",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_pvc",
+        description="Query Kubernetes PersistentVolumeClaim status and capacity matching a service",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_replicasets",
+        description="Query Kubernetes ReplicaSet history for a deployment (useful for rollout debugging)",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+                "deployment_name": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
+        retries=1,
+    )
+)
+
+register_tool(
+    ToolMetadata(
+        name="query_k8s_jobs",
+        description="Query Kubernetes Job and CronJob status for a service (completions, failures, schedule)",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "service": {"type": "string"},
+                "env": {"type": "string"},
+                "namespace": {"type": "string"},
+            },
+            "required": ["service", "env"],
+        },
+        risk_level="LOW",
+        requires_approval=False,
+        timeout_ms=15000,
         retries=1,
     )
 )
@@ -782,6 +1058,20 @@ class ToolGateway:
                 db.close()
         except Exception as e:
             logger.warning(f"Failed to persist tool audit (outer): {e}")
+
+    def get_tool_schema(self, tool_name: str) -> Dict[str, Any]:
+        metadata = self.registry.get(tool_name)
+        if not metadata:
+            return {}
+        schema = metadata.parameters_schema or {}
+        return {
+            "type": "function",
+            "function": {
+                "name": tool_name,
+                "description": metadata.description or "",
+                "parameters": schema,
+            },
+        }
 
     def get_audit_log(self, run_id: str = None) -> List[Dict[str, Any]]:
         if run_id:

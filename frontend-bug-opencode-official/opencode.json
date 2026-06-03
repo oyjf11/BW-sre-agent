@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "frontend-bug-orchestrator",
+  "command": {
+    "frontend-bug": {
+      "description": "Run the controlled frontend bug repair workflow through frontend-bug-orchestrator.",
+      "agent": "frontend-bug-orchestrator",
+      "template": "Use frontend-bug-orchestrator to process this frontend bug under the staged state machine, contract, todo gates and subagent permissions. Bug input:\n\n$ARGUMENTS"
+    }
+  }
+}
