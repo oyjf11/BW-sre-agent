@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 import time
 import logging
@@ -853,6 +853,45 @@ def _sanitize_for_audit(data: Any) -> Any:
     return data
 
 
+EVAL_WRITE_LIKE_TOOLS = {"execute_action"}
+
+
+def _maybe_eval_fixture_response(
+    request: ToolRequest, start_time: float
+) -> Optional[ToolResponse]:
+    """Short-circuit tool calls to fixed fixtures when inside an eval fixture_scope.
+
+    Returns None outside any scope (production / normal tests) so the gateway
+    proceeds with its mock/real adapter logic unchanged. Inside a scope:
+      - tool provided in fixtures   -> wrapped fixture result
+      - write_* / execute_action    -> success stub (not required as fixtures)
+      - other read-only tool        -> controlled empty {} (NOT mock data)
+    """
+    from app.evals.fixture_context import get_active_fixtures
+
+    fixtures = get_active_fixtures()
+    if fixtures is None:
+        return None
+
+    tool_name = request.tool_name
+    if tool_name in fixtures:
+        raw = fixtures[tool_name]
+        result = dict(raw) if isinstance(raw, dict) else {"value": raw}
+    elif tool_name.startswith("write_") or tool_name in EVAL_WRITE_LIKE_TOOLS:
+        result = {"success": True, "_eval_stub": True}
+    else:
+        result = {}
+
+    result["_adapter_info"] = "eval_fixture"
+    latency = int((time.time() - start_time) * 1000)
+    return ToolResponse(
+        tool_name=tool_name,
+        success=True,
+        result=result,
+        latency_ms=latency,
+    )
+
+
 class ToolGateway:
     def __init__(self):
         self.handlers = tool_handlers
@@ -890,6 +929,12 @@ class ToolGateway:
 
     async def call_tool(self, request: ToolRequest) -> ToolResponse:
         start_time = time.time()
+        # Eval fixture short-circuit (active only inside fixture_scope). Happens
+        # before mock/real selection, so it composes with the autouse mock conftest.
+        fixture_resp = _maybe_eval_fixture_response(request, start_time)
+        if fixture_resp is not None:
+            return fixture_resp
+
         span_id = tracer.start_span(
             f"tool.{request.tool_name}",
             run_id=request.run_id,
