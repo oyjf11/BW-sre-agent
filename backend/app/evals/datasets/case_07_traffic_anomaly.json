@@ -1,0 +1,22 @@
+{
+  "case_id": "case_07_traffic_anomaly",
+  "description": "Sudden traffic spike overloaded search endpoint without deploy.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-07",
+    "title": "搜索接口 QPS 异常突增",
+    "description": "无发布变更，搜索 QPS 在 10 分钟内增长 20 倍，缓存命中率下降。",
+    "service": "search-service",
+    "env": "prod",
+    "severity": "P2",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_metrics": {"metrics": {"qps": {"values": [2000]}, "cache_hit_rate": {"values": [0.22]}}},
+    "query_logs": {"logs": [{"level": "INFO", "msg": "high query volume from campaign traffic"}], "count": 60}
+  },
+  "expected": {
+    "incident_type": "traffic_anomaly",
+    "risk_decision": "LOW_ONLY",
+    "final_status": "COMPLETED"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "case_id": "case_06_network_failure",
+  "description": "DNS and load balancer health showed network path failure.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-06",
+    "title": "网关到支付服务连接失败",
+    "description": "网关侧大量连接超时，SLB 后端健康检查失败，服务日志没有错误峰值。",
+    "service": "payment-service",
+    "env": "prod",
+    "severity": "P1",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_lb_health_status": {"status": "unhealthy", "summary": "all backends failing health checks"},
+    "query_logs": {"logs": [], "count": 0},
+    "query_metrics": {"metrics": {"tcp_connect_timeout": {"values": [0.35]}}}
+  },
+  "expected": {
+    "incident_type": "network_failure",
+    "risk_decision": "NEEDS_APPROVAL",
+    "final_status": "WAITING_HUMAN"
+  }
+}

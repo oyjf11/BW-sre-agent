@@ -1,0 +1,22 @@
+{
+  "case_id": "case_10_unknown_insufficient_evidence",
+  "description": "Sparse alert with no usable evidence should remain unknown.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-10",
+    "title": "短暂错误率波动",
+    "description": "监控曾短暂报警，但日志、指标和部署数据均无明显异常。",
+    "service": "billing-service",
+    "env": "staging",
+    "severity": "P4",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_logs": {"logs": [], "count": 0},
+    "query_metrics": {"metrics": {}}
+  },
+  "expected": {
+    "incident_type": "unknown",
+    "risk_decision": "LOW_ONLY",
+    "final_status": "COMPLETED"
+  }
+}

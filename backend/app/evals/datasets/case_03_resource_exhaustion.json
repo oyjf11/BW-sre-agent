@@ -1,0 +1,22 @@
+{
+  "case_id": "case_03_resource_exhaustion",
+  "description": "CPU and memory saturation caused service timeout.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-03",
+    "title": "库存服务响应超时",
+    "description": "库存服务 CPU 持续 98%，内存接近上限，接口 p99 超过 8s。",
+    "service": "inventory-service",
+    "env": "prod",
+    "severity": "P1",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_metrics": {"metrics": {"cpu_usage": {"values": [0.98]}, "memory_usage": {"values": [0.94]}}},
+    "query_logs": {"logs": [{"level": "ERROR", "msg": "request timeout waiting for worker"}], "count": 31}
+  },
+  "expected": {
+    "incident_type": "resource_exhaustion",
+    "risk_decision": "NEEDS_APPROVAL",
+    "final_status": "WAITING_HUMAN"
+  }
+}

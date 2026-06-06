@@ -1,0 +1,22 @@
+{
+  "case_id": "case_08_security_incident",
+  "description": "Suspicious credential stuffing attempts caused auth errors.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-08",
+    "title": "登录失败率异常升高",
+    "description": "认证服务出现大量来自少量 IP 的失败登录请求，疑似撞库攻击。",
+    "service": "auth-service",
+    "env": "prod",
+    "severity": "P1",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_logs": {"logs": [{"level": "WARN", "msg": "credential stuffing pattern from 10.1.2.3"}], "count": 500},
+    "query_metrics": {"metrics": {"failed_login_rate": {"values": [0.72]}}}
+  },
+  "expected": {
+    "incident_type": "security_incident",
+    "risk_decision": "NEEDS_APPROVAL",
+    "final_status": "WAITING_HUMAN"
+  }
+}

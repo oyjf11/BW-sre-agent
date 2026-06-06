@@ -1,0 +1,22 @@
+{
+  "case_id": "case_02_configuration_error",
+  "description": "Manual config drift disabled the payment callback endpoint.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-02",
+    "title": "支付回调接口突然不可用",
+    "description": "未发布新版本，但配置中心 callback_enabled 被改为 false，回调全部失败。",
+    "service": "payment-service",
+    "env": "prod",
+    "severity": "P2",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_logs": {"logs": [{"level": "WARN", "msg": "callback disabled by config"}], "count": 16},
+    "query_metrics": {"metrics": {"callback_success_rate": {"values": [0.0]}}}
+  },
+  "expected": {
+    "incident_type": "configuration_error",
+    "risk_decision": "LOW_ONLY",
+    "final_status": "COMPLETED"
+  }
+}
