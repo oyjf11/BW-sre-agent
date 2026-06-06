@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import time
@@ -856,13 +857,41 @@ def _sanitize_for_audit(data: Any) -> Any:
 EVAL_WRITE_LIKE_TOOLS = {"execute_action"}
 
 
+def _validate_tool_params(params: Dict[str, Any], metadata: Optional[ToolMetadata]) -> str:
+    schema = metadata.parameters_schema if metadata else {}
+    properties = schema.get("properties", {})
+    required = schema.get("required", [])
+
+    for key in required:
+        if key not in params:
+            return f"Missing required parameter: {key}"
+
+    for key, value in params.items():
+        if key not in properties:
+            continue
+
+        expected_type = properties[key].get("type")
+        if expected_type == "string" and not isinstance(value, str):
+            return f"Invalid parameter '{key}': expected string"
+        if expected_type == "integer" and not isinstance(value, Integral):
+            return f"Invalid parameter '{key}': expected integer"
+        if expected_type == "object" and not isinstance(value, dict):
+            return f"Invalid parameter '{key}': expected object"
+        if expected_type == "array" and not isinstance(value, list):
+            return f"Invalid parameter '{key}': expected array"
+
+    return ""
+
+
 def _maybe_eval_fixture_response(
     request: ToolRequest, start_time: float
 ) -> Optional[ToolResponse]:
     """Short-circuit tool calls to fixed fixtures when inside an eval fixture_scope.
 
     Returns None outside any scope (production / normal tests) so the gateway
-    proceeds with its mock/real adapter logic unchanged. Inside a scope:
+    proceeds with its mock/real adapter logic unchanged. The eval path runs
+    before trace/audit, but still enforces the gateway contract fail-fast for
+    unknown tools and invalid params before returning fixtures. Inside a scope:
       - tool provided in fixtures   -> wrapped fixture result
       - write_* / execute_action    -> success stub (not required as fixtures)
       - other read-only tool        -> controlled empty {} (NOT mock data)
@@ -874,16 +903,34 @@ def _maybe_eval_fixture_response(
         return None
 
     tool_name = request.tool_name
+    latency = int((time.time() - start_time) * 1000)
+    if tool_name not in tool_handlers:
+        return ToolResponse(
+            tool_name=tool_name,
+            success=False,
+            error=f"Tool '{tool_name}' not found",
+            latency_ms=latency,
+        )
+
+    metadata = TOOL_REGISTRY.get(tool_name)
+    validation_error = _validate_tool_params(request.params, metadata)
+    if validation_error:
+        return ToolResponse(
+            tool_name=tool_name,
+            success=False,
+            error=validation_error,
+            latency_ms=latency,
+        )
+
     if tool_name in fixtures:
         raw = fixtures[tool_name]
-        result = dict(raw) if isinstance(raw, dict) else {"value": raw}
+        result = deepcopy(raw) if isinstance(raw, dict) else {"value": deepcopy(raw)}
     elif tool_name.startswith("write_") or tool_name in EVAL_WRITE_LIKE_TOOLS:
         result = {"success": True, "_eval_stub": True}
     else:
         result = {}
 
     result["_adapter_info"] = "eval_fixture"
-    latency = int((time.time() - start_time) * 1000)
     return ToolResponse(
         tool_name=tool_name,
         success=True,
@@ -1030,29 +1077,7 @@ class ToolGateway:
         return result
 
     def _validate_params(self, params: Dict[str, Any], metadata: ToolMetadata) -> str:
-        schema = metadata.parameters_schema if metadata else {}
-        properties = schema.get("properties", {})
-        required = schema.get("required", [])
-
-        for key in required:
-            if key not in params:
-                return f"Missing required parameter: {key}"
-
-        for key, value in params.items():
-            if key not in properties:
-                continue
-
-            expected_type = properties[key].get("type")
-            if expected_type == "string" and not isinstance(value, str):
-                return f"Invalid parameter '{key}': expected string"
-            if expected_type == "integer" and not isinstance(value, Integral):
-                return f"Invalid parameter '{key}': expected integer"
-            if expected_type == "object" and not isinstance(value, dict):
-                return f"Invalid parameter '{key}': expected object"
-            if expected_type == "array" and not isinstance(value, list):
-                return f"Invalid parameter '{key}': expected array"
-
-        return ""
+        return _validate_tool_params(params, metadata)
 
     def _log_audit(
         self,

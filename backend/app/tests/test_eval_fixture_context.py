@@ -38,6 +38,38 @@ async def test_unprovided_readonly_tool_returns_controlled_empty():
 
 
 @pytest.mark.asyncio
+async def test_scope_unknown_tool_still_fails_fast():
+    with fixture_scope({"query_logs": {"count": 1}}):
+        resp = await gateway.call_tool(_req("typo_tool"))
+    assert resp.success is False
+    assert "not found" in resp.error
+
+
+@pytest.mark.asyncio
+async def test_scope_invalid_params_still_fail_fast():
+    with fixture_scope({"query_logs": {"count": 1}}):
+        resp = await gateway.call_tool(
+            ToolRequest(
+                tool_name="query_logs",
+                params={"service": 123, "env": "e"},
+                run_id="r",
+            )
+        )
+    assert resp.success is False
+    assert "expected string" in resp.error
+
+
+@pytest.mark.asyncio
+async def test_fixture_result_is_deep_copied():
+    fixtures = {"query_logs": {"logs": [{"m": "x"}], "count": 1}}
+    with fixture_scope(fixtures):
+        resp = await gateway.call_tool(_req("query_logs"))
+
+    resp.result["logs"][0]["m"] = "changed"
+    assert fixtures["query_logs"]["logs"][0]["m"] == "x"
+
+
+@pytest.mark.asyncio
 async def test_write_tool_returns_success_stub():
     with fixture_scope({"query_logs": {"count": 1}}):
         resp = await gateway.call_tool(
@@ -49,6 +81,26 @@ async def test_write_tool_returns_success_stub():
         )
     assert resp.success is True
     assert resp.result.get("_eval_stub") is True
+
+
+@pytest.mark.asyncio
+async def test_execute_action_returns_success_stub_with_valid_params():
+    with fixture_scope({"query_logs": {"count": 1}}):
+        resp = await gateway.call_tool(
+            ToolRequest(
+                tool_name="execute_action",
+                params={
+                    "action_type": "restart",
+                    "service": "s",
+                    "env": "e",
+                    "params": {},
+                },
+                run_id="r",
+            )
+        )
+    assert resp.success is True
+    assert resp.result.get("_eval_stub") is True
+    assert resp.result.get("_adapter_info") == "eval_fixture"
 
 
 @pytest.mark.asyncio
@@ -70,3 +122,14 @@ async def test_concurrent_cases_are_isolated():
 
     results = await asyncio.gather(run_case(1), run_case(2), run_case(3))
     assert sorted(results) == [1, 2, 3]
+
+
+@pytest.mark.asyncio
+async def test_nested_scope_restores_outer_fixture():
+    with fixture_scope({"query_logs": {"count": 1}}):
+        with fixture_scope({"query_logs": {"count": 2}}):
+            inner = await gateway.call_tool(_req("query_logs"))
+        outer = await gateway.call_tool(_req("query_logs"))
+
+    assert inner.result["count"] == 2
+    assert outer.result["count"] == 1
