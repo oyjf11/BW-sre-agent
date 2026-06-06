@@ -869,10 +869,15 @@ def _coerce_incident_type(raw: Any) -> "IncidentType":
     - Missing / None -> unknown (insufficient signal).
     - Non-empty but illegal -> other (model decided a cause outside the taxonomy).
     """
-    if raw is None or raw == "":
+    if isinstance(raw, IncidentType):
+        return raw
+    if raw is None:
+        return IncidentType.unknown
+    value = str(raw).strip()
+    if value == "":
         return IncidentType.unknown
     try:
-        return IncidentType(str(raw).strip())
+        return IncidentType(value)
     except ValueError:
         logger.warning("diagnose: illegal incident_type %r -> downgraded to 'other'", raw)
         return IncidentType.other
@@ -944,7 +949,6 @@ Provide 2-3 root cause candidates in JSON format:
     "incident_type": "EXACTLY ONE of: {incident_type_values}",
     "hypothesis": "brief description of possible root cause",
     "confidence": 0.0-1.0,
-    "supporting_evidence": "why this evidence supports this hypothesis",
     "next_checks": ["action to verify", "another check"]
   }}
 ]
@@ -983,21 +987,44 @@ Respond in JSON format only."""
             if json_match:
                 llm_candidates = json.loads(json_match.group())
                 if isinstance(llm_candidates, list):
-                    for c in llm_candidates[:3]:
-                        raw_type = c.get("incident_type")
-                        incident_type = _coerce_incident_type(raw_type)
-                        candidate = RootCauseCandidate(
-                            candidate_id=f"cand_{uuid.uuid4().hex[:8]}",
-                            hypothesis=c.get("hypothesis", "Unknown"),
-                            confidence=c.get("confidence", 0.5),
-                            incident_type=incident_type,
-                            supporting_evidence_ids=[],
-                            contradicting_evidence_ids=[],
-                            next_checks=c.get("next_checks", []),
-                        )
+                    for index, c in enumerate(llm_candidates[:3]):
+                        if not isinstance(c, dict):
+                            logger.warning(
+                                "diagnose: skipping invalid candidate at index %s: "
+                                "expected object, got %s",
+                                index,
+                                type(c).__name__,
+                            )
+                            continue
+                        try:
+                            raw_type = c.get("incident_type")
+                            incident_type = _coerce_incident_type(raw_type)
+                            candidate = RootCauseCandidate(
+                                candidate_id=f"cand_{uuid.uuid4().hex[:8]}",
+                                hypothesis=c.get("hypothesis", "Unknown"),
+                                confidence=c.get("confidence", 0.5),
+                                incident_type=incident_type,
+                                supporting_evidence_ids=[],
+                                contradicting_evidence_ids=[],
+                                next_checks=c.get("next_checks", []),
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "diagnose: skipping invalid candidate at index %s: %s",
+                                index,
+                                e,
+                            )
+                            continue
                         candidates.append(candidate)
-        except Exception:
-            pass
+                else:
+                    logger.warning(
+                        "diagnose: expected LLM candidates array, got %s",
+                        type(llm_candidates).__name__,
+                    )
+            else:
+                logger.warning("diagnose: LLM response did not contain a candidate array")
+        except Exception as e:
+            logger.warning("diagnose: failed to parse LLM candidates: %s", e)
 
     # Fallback if LLM failed
     if not candidates:

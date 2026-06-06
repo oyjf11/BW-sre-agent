@@ -1,7 +1,6 @@
 """Tests for structured incident_type output from diagnose_node (mock LLM)."""
-import pytest
 
-from app.graph.nodes import diagnose_node
+from app.graph.nodes import _coerce_incident_type, diagnose_node
 from app.graph.state import RunStatus
 from app.models.incident import IncidentTicket
 from app.models.incident_type import IncidentType
@@ -90,3 +89,32 @@ def test_missing_type_defaults_to_unknown(monkeypatch):
     monkeypatch.setattr(llm_client, "complete_sync", fake)
     out = diagnose_node(_state())
     assert out["root_cause_candidates"][0].incident_type == IncidentType.unknown
+
+
+def test_coerce_incident_type_accepts_enum_instance():
+    assert (
+        _coerce_incident_type(IncidentType.deployment_regression)
+        == IncidentType.deployment_regression
+    )
+
+
+def test_coerce_incident_type_blank_string_defaults_to_unknown():
+    assert _coerce_incident_type("   ") == IncidentType.unknown
+
+
+def test_bad_candidates_do_not_drop_valid_candidates(monkeypatch):
+    def fake(prompt, system_prompt=None, temperature=0.7):
+        return """[
+          "not a candidate object",
+          {"incident_type": "deployment_regression", "hypothesis": "bad confidence",
+           "confidence": "not-a-number", "next_checks": []},
+          {"incident_type": "dependency_failure", "hypothesis": "valid candidate",
+           "confidence": 0.66, "next_checks": ["check dependency"]}
+        ]"""
+
+    monkeypatch.setattr(llm_client, "complete_sync", fake)
+    out = diagnose_node(_state())
+    cands = out["root_cause_candidates"]
+    assert len(cands) == 1
+    assert cands[0].hypothesis == "valid candidate"
+    assert cands[0].incident_type == IncidentType.dependency_failure
