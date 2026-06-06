@@ -14,6 +14,17 @@ class TestIncidentGraph:
         graph = create_incident_graph()
         assert graph is not None
         assert hasattr(graph, "ainvoke")
+
+    def test_graph_accepts_checkpointer_kwarg(self):
+        """create_incident_graph(checkpointer=...) compiles; default None unchanged."""
+        from langgraph.checkpoint.memory import MemorySaver
+
+        default_graph = create_incident_graph()
+        assert default_graph is not None
+
+        cp_graph = create_incident_graph(checkpointer=MemorySaver())
+        assert cp_graph is not None
+        assert hasattr(cp_graph, "ainvoke")
     
     @pytest.mark.asyncio
     async def test_graph_execution(self, monkeypatch):
