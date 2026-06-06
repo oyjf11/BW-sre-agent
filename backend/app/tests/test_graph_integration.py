@@ -21,9 +21,12 @@ class TestIncidentGraph:
 
         default_graph = create_incident_graph()
         assert default_graph is not None
+        assert default_graph.checkpointer is None
 
-        cp_graph = create_incident_graph(checkpointer=MemorySaver())
+        saver = MemorySaver()
+        cp_graph = create_incident_graph(checkpointer=saver)
         assert cp_graph is not None
+        assert cp_graph.checkpointer is saver
         assert hasattr(cp_graph, "ainvoke")
     
     @pytest.mark.asyncio
