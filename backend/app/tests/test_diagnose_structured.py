@@ -118,3 +118,34 @@ def test_bad_candidates_do_not_drop_valid_candidates(monkeypatch):
     assert len(cands) == 1
     assert cands[0].hypothesis == "valid candidate"
     assert cands[0].incident_type == IncidentType.dependency_failure
+
+
+class TestTriageReferenceAlignment:
+    """triage still emits the same string values, now sourced from the enum."""
+
+    def test_deploy_rule_emits_enum_value(self):
+        from app.graph.nodes import _triage_by_rules
+
+        r = _triage_by_rules("Release rollback failed", "", "P1", "svc", "prod")
+        assert r is not None
+        assert r.incident_type == IncidentType.deployment_regression.value
+
+    def test_resource_rule_emits_enum_value(self):
+        from app.graph.nodes import _triage_by_rules
+
+        r = _triage_by_rules("OOM killed pod", "memory leak", "P2", "svc", "staging")
+        assert r is not None
+        assert r.incident_type == IncidentType.resource_exhaustion.value
+
+    def test_dependency_rule_emits_enum_value(self):
+        from app.graph.nodes import _triage_by_rules
+
+        r = _triage_by_rules("downstream timeout 503", "", "P2", "svc", "staging")
+        assert r is not None
+        assert r.incident_type == IncidentType.dependency_failure.value
+
+    def test_fallback_emits_enum_value(self):
+        from app.graph.nodes import _triage_fallback
+
+        r = _triage_fallback("weird thing", "P3", "svc")
+        assert r.incident_type == IncidentType.service_degradation.value

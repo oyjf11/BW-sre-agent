@@ -77,7 +77,7 @@ def _triage_by_rules(title: str, description: str, severity: str, service: str, 
     # Deployment regression pattern
     if any(kw in text for kw in ["deploy", "rollback", "release", "版本", "发布", "回滚"]):
         return TriageResult(
-            incident_type="deployment_regression",
+            incident_type=IncidentType.deployment_regression.value,
             severity=severity or "P1",
             suspected_services=[service] if service else [],
             suggested_time_window={"start": "2h ago", "end": "now"},
@@ -88,7 +88,7 @@ def _triage_by_rules(title: str, description: str, severity: str, service: str, 
     # Resource exhaustion pattern
     if any(kw in text for kw in ["cpu", "memory", "oom", "disk", "内存", "磁盘"]):
         return TriageResult(
-            incident_type="resource_exhaustion",
+            incident_type=IncidentType.resource_exhaustion.value,
             severity=severity or "P2",
             suspected_services=[service] if service else [],
             suggested_time_window={"start": "1h ago", "end": "now"},
@@ -102,7 +102,7 @@ def _triage_by_rules(title: str, description: str, severity: str, service: str, 
         for kw in ["timeout", "connection refused", "downstream", "依赖", "超时", "503", "502"]
     ):
         return TriageResult(
-            incident_type="dependency_failure",
+            incident_type=IncidentType.dependency_failure.value,
             severity=severity or "P2",
             suspected_services=[service] if service else [],
             suggested_time_window={"start": "1h ago", "end": "now"},
@@ -156,7 +156,7 @@ Respond in JSON format."""
             tw = {"start": tw, "end": "now"}
 
         return TriageResult(
-            incident_type=llm_data.get("incident_type", "service_degradation"),
+            incident_type=llm_data.get("incident_type", IncidentType.service_degradation.value),
             severity=llm_data.get("severity", severity or "P2"),
             suspected_services=llm_data.get("suspected_services", [service] if service else []),
             suggested_time_window=tw,
@@ -170,7 +170,7 @@ Respond in JSON format."""
 def _triage_fallback(title: str, severity: str, service: str):
     """Stage 3: Fallback triage when rules and LLM both fail."""
     return TriageResult(
-        incident_type="service_degradation",
+        incident_type=IncidentType.service_degradation.value,
         severity=severity or "P2",
         suspected_services=[service] if service else [],
         suggested_time_window={"start": "1h ago", "end": "now"},
@@ -257,21 +257,21 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
         )
 
     def _add_db_tasks(svc: str, incident: str):
-        if incident == "resource_exhaustion":
+        if incident == IncidentType.resource_exhaustion.value:
             _add("db", "query_db_variables", 2, svc)
             _add("db", "query_db_processlist", 2, svc)
             _add("db", "query_db_slow_queries", 3, svc, {"threshold_seconds": 5})
-        elif incident == "dependency_failure":
+        elif incident == IncidentType.dependency_failure.value:
             _add("db", "query_db_processlist", 2, svc)
             _add("db", "query_db_slow_queries", 2, svc, {"threshold_seconds": 5})
-        elif incident == "deployment_regression":
+        elif incident == IncidentType.deployment_regression.value:
             _add("db", "query_db_slow_queries", 4, svc, {"threshold_seconds": 5})
         else:
             _add("db", "query_db_processlist", 3, svc)
             _add("db", "query_db_variables", 3, svc)
 
     def _add_k8s_tasks(svc: str, incident: str):
-        if incident == "resource_exhaustion":
+        if incident == IncidentType.resource_exhaustion.value:
             _add("k8s", "query_k8s_nodes", 1, svc)
             _add("k8s", "query_k8s_deployment_status", 2, svc)
             _add("k8s", "query_k8s_pods", 2, svc)
@@ -280,13 +280,13 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
             _add("k8s", "query_k8s_resource_quotas", 3, svc)
             _add("k8s", "query_k8s_pod_logs_summary", 4, svc, {"tail_lines": 100})
             _add("k8s", "query_k8s_pvc", 4, svc)
-        elif incident == "dependency_failure":
+        elif incident == IncidentType.dependency_failure.value:
             _add("k8s", "query_k8s_deployment_status", 2, svc)
             _add("k8s", "query_k8s_events", 2, svc, {"limit": 20})
             _add("k8s", "query_k8s_services", 2, svc)
             _add("k8s", "query_k8s_pod_logs_summary", 3, svc, {"tail_lines": 100})
             _add("k8s", "query_k8s_ingresses", 3, svc)
-        elif incident == "deployment_regression":
+        elif incident == IncidentType.deployment_regression.value:
             _add("k8s", "query_k8s_deployment_status", 2, svc)
             _add("k8s", "query_k8s_pods", 3, svc)
             _add("k8s", "query_k8s_events", 3, svc, {"limit": 20})
@@ -302,7 +302,7 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
             _add("k8s", "query_k8s_daemonsets", 5, svc)
             _add("k8s", "query_k8s_jobs", 5, svc)
 
-    if incident_type == "deployment_regression":
+    if incident_type == IncidentType.deployment_regression.value:
         # Deployments + logs first
         for s in services:
             _add("deployments", "query_deployments", 1, s)
@@ -313,7 +313,7 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
             _add("runbook", "query_runbook", 4, s, {"incident_type": incident_type})
         rationale = "Deployment regression: prioritize deployment history, K8s rollout state, logs, and DB slow query evidence"
 
-    elif incident_type == "resource_exhaustion":
+    elif incident_type == IncidentType.resource_exhaustion.value:
         # Metrics + k8s first
         for s in services:
             _add("metrics", "query_metrics", 1, s)
@@ -324,7 +324,7 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
             _add("runbook", "query_runbook", 5, s, {"incident_type": incident_type})
         rationale = "Resource exhaustion: prioritize metrics, K8s saturation signals, and DB capacity evidence"
 
-    elif incident_type == "dependency_failure":
+    elif incident_type == IncidentType.dependency_failure.value:
         # Logs + history + lb first
         for s in services:
             _add("logs", "query_logs", 1, s)
