@@ -9,6 +9,7 @@ from app.models.incident import IncidentTicket
 from app.models.triage import TriageResult
 from app.models.evidence import EvidenceItem
 from app.models.root_cause import RootCauseCandidate
+from app.models.incident_type import IncidentType
 from app.models.remediation import RemediationPlan, ActionSpec
 from app.models.approval import ApprovalRequest
 from app.models.rca import RcaReport
@@ -861,6 +862,22 @@ def _evidence_aggregate_v2(state: IncidentAgentState) -> IncidentAgentState:
     return state
 
 
+def _coerce_incident_type(raw: Any) -> "IncidentType":
+    """Validate an LLM-provided incident_type into the closed enum.
+
+    - Valid enum value -> that member.
+    - Missing / None -> unknown (insufficient signal).
+    - Non-empty but illegal -> other (model decided a cause outside the taxonomy).
+    """
+    if raw is None or raw == "":
+        return IncidentType.unknown
+    try:
+        return IncidentType(str(raw).strip())
+    except ValueError:
+        logger.warning("diagnose: illegal incident_type %r -> downgraded to 'other'", raw)
+        return IncidentType.other
+
+
 def diagnose_node(state: IncidentAgentState) -> IncidentAgentState:
     import logging
 
@@ -906,6 +923,7 @@ def diagnose_node(state: IncidentAgentState) -> IncidentAgentState:
         if hasattr(triage, "incident_type")
         else triage.get("incident_type", "unknown")
     )
+    incident_type_values = ", ".join(t.value for t in IncidentType)
 
     # LLM prompt for root cause analysis
     diagnose_prompt = f"""Analyze this incident and provide root cause candidates.
@@ -923,12 +941,18 @@ def diagnose_node(state: IncidentAgentState) -> IncidentAgentState:
 Provide 2-3 root cause candidates in JSON format:
 [
   {{
+    "incident_type": "EXACTLY ONE of: {incident_type_values}",
     "hypothesis": "brief description of possible root cause",
     "confidence": 0.0-1.0,
     "supporting_evidence": "why this evidence supports this hypothesis",
     "next_checks": ["action to verify", "another check"]
   }}
 ]
+
+incident_type rules:
+- Use exactly one value from this closed enum: {incident_type_values}.
+- Use "unknown" when evidence is insufficient to choose a cause.
+- Use "other" only when you have a concrete cause outside this taxonomy.
 
 Respond in JSON format only."""
 
@@ -960,10 +984,13 @@ Respond in JSON format only."""
                 llm_candidates = json.loads(json_match.group())
                 if isinstance(llm_candidates, list):
                     for c in llm_candidates[:3]:
+                        raw_type = c.get("incident_type")
+                        incident_type = _coerce_incident_type(raw_type)
                         candidate = RootCauseCandidate(
                             candidate_id=f"cand_{uuid.uuid4().hex[:8]}",
                             hypothesis=c.get("hypothesis", "Unknown"),
                             confidence=c.get("confidence", 0.5),
+                            incident_type=incident_type,
                             supporting_evidence_ids=[],
                             contradicting_evidence_ids=[],
                             next_checks=c.get("next_checks", []),
@@ -978,6 +1005,7 @@ Respond in JSON format only."""
             candidate_id=f"cand_{uuid.uuid4().hex[:8]}",
             hypothesis="High resource usage causing degradation",
             confidence=0.7,
+            incident_type=IncidentType.unknown,
             supporting_evidence_ids=[],
             contradicting_evidence_ids=[],
             next_checks=["Check metric thresholds", "Review scaling policies"],
@@ -988,11 +1016,17 @@ Respond in JSON format only."""
             candidate_id=f"cand_{uuid.uuid4().hex[:8]}",
             hypothesis="Recent deployment may have introduced the issue",
             confidence=0.5,
+            incident_type=IncidentType.unknown,
             supporting_evidence_ids=[],
             contradicting_evidence_ids=[],
             next_checks=["Check deployment logs", "Verify rollback"],
         )
         candidates.append(candidate)
+
+    candidates.sort(
+        key=lambda c: c.confidence if hasattr(c, "confidence") else 0.0,
+        reverse=True,
+    )
 
     state["root_cause_candidates"] = candidates
     state["status"] = RunStatus.DIAGNOSED
