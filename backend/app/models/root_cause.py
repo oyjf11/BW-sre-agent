@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field  # 引入 Pydantic 基类和字段声明工具
 from typing import List, Optional  # 引入列表和可选类型
 
+from app.models.incident_type import IncidentType
+
 
 class RootCauseCandidate(BaseModel):
     """
@@ -17,6 +19,10 @@ class RootCauseCandidate(BaseModel):
     confidence: float = Field(
         ..., ge=0.0, le=1.0, description="Confidence score"
     )  # 对该根因假设的置信度（0~1）
+    incident_type: IncidentType = Field(
+        default=IncidentType.unknown,
+        description="Closed-enum incident classification (primary eval metric)",
+    )  # 封闭枚举根因分类（评测主指标，默认 unknown 向后兼容）
     supporting_evidence_ids: List[str] = Field(
         default_factory=list, description="Evidence supporting this hypothesis"
     )  # 支持该假设的证据 ID 列表
