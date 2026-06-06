@@ -3,6 +3,7 @@ import asyncio
 
 import pytest
 
+from app.graph.evidence_utils import classify_result
 from app.tools import gateway, ToolRequest
 from app.evals.fixture_context import fixture_scope, get_active_fixtures
 
@@ -35,6 +36,25 @@ async def test_unprovided_readonly_tool_returns_controlled_empty():
     assert resp.result.get("_adapter_info") == "eval_fixture"
     # No payload keys other than the adapter marker
     assert set(resp.result.keys()) == {"_adapter_info"}
+
+
+@pytest.mark.asyncio
+async def test_unprovided_db_fixture_metadata_classifies_empty():
+    with fixture_scope({"query_logs": {"count": 1}}):
+        resp = await gateway.call_tool(_req("query_db_processlist"))
+
+    classified = classify_result(
+        tool_name="query_db_processlist",
+        category="db",
+        success=resp.success,
+        result=resp.result,
+        error=resp.error,
+        latency_ms=resp.latency_ms,
+        collected_at="2026-06-06T00:00:00Z",
+    )
+
+    assert resp.result == {"_adapter_info": "eval_fixture"}
+    assert classified.status == "SUCCESS_EMPTY"
 
 
 @pytest.mark.asyncio

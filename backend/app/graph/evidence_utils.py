@@ -69,6 +69,8 @@ def is_payload_usable(tool_name: str, payload: Optional[Dict[str, Any]]) -> bool
     if not payload or not isinstance(payload, dict):
         return False
 
+    semantic_payload = _semantic_payload(payload)
+
     if tool_name == "query_logs":
         logs = payload.get("logs")
         count = payload.get("count", 0)
@@ -108,14 +110,18 @@ def is_payload_usable(tool_name: str, payload: Optional[Dict[str, Any]]) -> bool
     if tool_name.startswith("query_db_"):
         if any(payload.get(k) is not None for k in ("rows", "processes", "queries", "variables")):
             return True
-        return bool(payload)
+        return bool(semantic_payload)
 
     if tool_name.startswith("query_lb_"):
         if payload.get("status") or payload.get("error_rate") is not None:
             return True
         return False
 
-    return bool(payload)
+    return bool(semantic_payload)
+
+
+def _semantic_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: value for key, value in payload.items() if not key.startswith("_")}
 
 
 def _summarize_result(tool_name: str, payload: Optional[Dict[str, Any]]) -> str:
