@@ -1,4 +1,6 @@
 """Integration tests for the incident graph."""
+import json
+
 import pytest
 from app.graph.builder import create_incident_graph
 from app.graph.state import IncidentAgentState, RunStatus
@@ -177,7 +179,44 @@ class TestIncidentGraph:
                 """
             return "fallback_response"
 
+        async def fake_complete_async(messages, tools=None, temperature: float = 0.7, max_tokens: int = 2000):
+            if tools:
+                has_tool_result = any(m.get("role") == "tool" for m in messages)
+                if has_tool_result:
+                    return {"content": "tool collection complete", "tool_calls": None}
+
+                tool_calls = []
+                for idx, tool in enumerate(tools):
+                    tool_name = tool.get("function", {}).get("name")
+                    args = {"service": "api-service", "env": "prod"}
+                    if tool_name and tool_name.startswith("query_k8s_"):
+                        args["namespace"] = "default"
+                    tool_calls.append(
+                        {
+                            "id": f"call_{idx}",
+                            "function": {
+                                "name": tool_name,
+                                "arguments": json.dumps(args),
+                            },
+                        }
+                    )
+                return {"content": "", "tool_calls": tool_calls}
+
+            return {
+                "content": json.dumps(
+                    {
+                        "conclusion": "异常: deterministic specialist analysis",
+                        "severity": "warning",
+                        "anomalies": [],
+                        "correlation_hints": [],
+                        "confidence": 0.8,
+                    }
+                ),
+                "tool_calls": None,
+            }
+
         monkeypatch.setattr(llm_client, "complete_sync", fake_complete_sync)
+        monkeypatch.setattr(llm_client, "complete_async", fake_complete_async)
 
         initial_state: IncidentAgentState = {
             "run_id": "test-run-003",

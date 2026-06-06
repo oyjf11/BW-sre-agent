@@ -9,6 +9,10 @@ from app.models.db_models import Base, IncidentRun, IncidentRunEvent, RunStatusE
 from app.services.event_bus import EventBus, EventType
 
 
+async def _next_async(iterator):
+    return await iterator.__anext__()
+
+
 @pytest.fixture
 def db_session():
     fd, db_path = tempfile.mkstemp(suffix='.db')
@@ -50,7 +54,7 @@ class TestEventBus:
     async def test_publish_notifies_subscriber(self, db_session):
         bus = EventBus()
         iterator = bus.iter_events("run-1")
-        pending = asyncio.create_task(anext(iterator))
+        pending = asyncio.create_task(_next_async(iterator))
         await asyncio.sleep(0)
 
         bus.publish(
@@ -70,7 +74,7 @@ class TestEventBus:
     async def test_publish_notifies_subscriber_from_worker_thread(self, db_session):
         bus = EventBus()
         iterator = bus.iter_events("run-1")
-        pending = asyncio.create_task(anext(iterator))
+        pending = asyncio.create_task(_next_async(iterator))
         await asyncio.sleep(0)
 
         await asyncio.to_thread(

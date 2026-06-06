@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
-> 生成时间: 2026-04-06 | 更新时间: 2026-06-01
-> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；Phase 8 启动前 real adapter 收口已完成；LLM 已切换至 DeepSeek，具体模型由 `DEEPSEEK_MODEL` 配置；Phase 8 离线评测尚未启动。
+> 生成时间: 2026-04-06 | 更新时间: 2026-06-06
+> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；Phase 8 启动前 real adapter 收口已完成；2026-06-06 已修复 specialist pool 审批门禁回归与测试隔离问题；LLM 已切换至 DeepSeek，具体模型由 `DEEPSEEK_MODEL` 配置；Phase 8 离线评测尚未启动。
 
 ---
 
@@ -347,6 +347,26 @@
 **验证**:
 - 后端：`cd backend && source venv/bin/activate && python -m pytest app/tests/ -x -q`（166 passed）
 - 前端：`cd frontend && npx vitest run`（22 个测试文件，145 passed）
+
+### 2026-06-06 回归测试收口 — ✅ 已完成
+
+**背景**: `.test/OpsPilot Agent 测试报告-20260606.md` 指出 1 个 P0 审批门禁回归、1 个 P1 测试隔离缺陷和 1 个 P2 Python 3.9 测试兼容问题。
+
+**完成说明**:
+- 已修复 specialist pool 的 category → agent_id 映射，避免 `logs_specialist` / `deployments_specialist` 与 `agent_configs.yaml` 的 `log_specialist` / `deployment_specialist` 不一致导致部署证据缺失。
+- 已补充回归测试：planner/default task 生成的 agent_id 必须命中配置；高风险发布回归在 deterministic specialist 证据下必须停在 `WAITING_HUMAN` 并生成 pending approval。
+- 已新增后端 pytest autouse fixture，默认强制 `TOOL_ADAPTER_MODE=mock` 与 `gateway.ADAPTER_MODE=mock`，避免本地 `.env` real 误触真实只读 adapter；真实 adapter 测试仍可在单测内显式 monkeypatch。
+- 已修复 `test_event_bus.py` 对 Python 3.10+ 内置 `anext()` 的依赖，兼容当前 Python 3.9.6。
+
+**验证结果**:
+- 后端全套：`251 passed, 2 warnings in 152.26s`。
+- 前端 Vitest：`156 passed`。
+- 前端 build：通过。
+- 前端 lint：仍有既有 `no-explicit-any` / react-refresh 规则错误，未纳入本后端回归修复范围。
+
+**长期规则**:
+- 后端单元测试默认 mock adapter；真实 adapter 测试必须显式 opt-in。
+- specialist pool 新增 category 时必须同步 `CATEGORY_AGENT_ID_MAP`、`agent_configs.yaml` 和任务生成回归测试。
 
 ---
 

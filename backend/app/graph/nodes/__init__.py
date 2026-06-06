@@ -368,6 +368,7 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
 
 def _generate_agent_tasks(state: IncidentAgentState) -> List:
     from app.models.planning import AgentTask
+    from app.graph.nodes.specialist_agent import agent_id_for_category
 
     ticket = state.get("ticket")
     triage = state.get("triage")
@@ -383,7 +384,7 @@ def _generate_agent_tasks(state: IncidentAgentState) -> List:
     tasks = []
     for cat in categories:
         tasks.append(AgentTask(
-            agent_id=f"{cat}_specialist",
+            agent_id=agent_id_for_category(cat),
             category=cat,
             service=service,
             env=env,
@@ -599,6 +600,8 @@ async def _evidence_fanout_v2(state: IncidentAgentState) -> IncidentAgentState:
 
 
 def _fallback_from_plan_to_agent_tasks(plan_tasks: List[Dict], ticket: Any) -> List[Dict[str, Any]]:
+    from app.graph.nodes.specialist_agent import agent_id_for_category
+
     category_map = {
         "k8s": "k8s", "db": "db", "logs": "logs",
         "metrics": "metrics", "deployments": "deployments",
@@ -614,7 +617,7 @@ def _fallback_from_plan_to_agent_tasks(plan_tasks: List[Dict], ticket: Any) -> L
             service = ticket.service if hasattr(ticket, "service") else ticket.get("service", "unknown")
             env = ticket.env if hasattr(ticket, "env") else ticket.get("env", "unknown")
             agent_tasks.append(AgentTask(
-                agent_id=f"{mapped}_specialist",
+                agent_id=agent_id_for_category(mapped),
                 category=mapped,
                 service=service,
                 env=env,

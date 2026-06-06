@@ -40,6 +40,18 @@ CATEGORY_PREFIX_MAP: Dict[str, str] = {
     "deployments": "query_deployments",
 }
 
+CATEGORY_AGENT_ID_MAP: Dict[str, str] = {
+    "k8s": "k8s_specialist",
+    "db": "db_specialist",
+    "logs": "log_specialist",
+    "metrics": "metrics_specialist",
+    "deployments": "deployment_specialist",
+}
+
+
+def agent_id_for_category(category: str) -> str:
+    return CATEGORY_AGENT_ID_MAP.get(category, f"{category}_specialist")
+
 
 class SpecialistAgentConfig:
     def __init__(
@@ -603,7 +615,7 @@ def _build_default_agent_tasks(ticket: Any) -> List[AgentTask]:
     tasks: List[AgentTask] = []
     for cat in categories:
         tasks.append(AgentTask(
-            agent_id=f"{cat}_specialist",
+            agent_id=agent_id_for_category(cat),
             category=cat,
             service=service,
             env=env,

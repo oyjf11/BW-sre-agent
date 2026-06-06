@@ -327,6 +327,48 @@ class TestBuildDefaultAgentTasks:
         categories = {t.category for t in tasks}
         assert categories == {"k8s", "db", "logs", "metrics", "deployments"}
 
+    def test_default_task_agent_ids_exist_in_config(self):
+        from app.models.incident import IncidentTicket
+
+        ticket = IncidentTicket(
+            ticket_id="INC-001", title="test", description="test",
+            service="payment-service", env="staging", severity="P2",
+            source="manual",
+        )
+
+        configs = load_agent_configs()
+        tasks = _build_default_agent_tasks(ticket)
+
+        assert {t.agent_id for t in tasks}.issubset(set(configs))
+
+    def test_planner_agent_ids_exist_in_config(self, monkeypatch):
+        from app.graph.nodes import planner_node
+        from app.models.incident import IncidentTicket
+        from app.models.triage import TriageResult
+
+        class Settings:
+            agent_feature_specialist_pool = True
+
+        monkeypatch.setattr("app.graph.nodes.get_settings", lambda: Settings())
+        ticket = IncidentTicket(
+            ticket_id="INC-001", title="test", description="test",
+            service="payment-service", env="staging", severity="P2",
+            source="manual",
+        )
+        triage = TriageResult(
+            incident_type="deployment_regression",
+            severity="P2",
+            suspected_services=["payment-service"],
+            suggested_time_window={"start": "2h ago", "end": "now"},
+            requires_immediate_human=False,
+            rationale="test",
+        )
+
+        result = planner_node({"ticket": ticket, "triage": triage, "step_count": 0})
+        configs = load_agent_configs()
+
+        assert {t["agent_id"] for t in result["agent_tasks"]}.issubset(set(configs))
+
     def test_uses_ticket_service(self):
         from app.models.incident import IncidentTicket
         ticket = IncidentTicket(
