@@ -50,7 +50,7 @@ htmlcov/
 # Agent 工具目录
 .agent/
 .agents/
-.opencode/
+# .opencode/
 .qoder/
 .sisyphus/
 .claude/
