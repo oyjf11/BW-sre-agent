@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opspilot-frontend
+  namespace: opspilot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opspilot-frontend
+  template:
+    metadata:
+      labels:
+        app: opspilot-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: <ACR_REGISTRY>/opspilot-frontend:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opspilot-frontend
+  namespace: opspilot
+spec:
+  selector:
+    app: opspilot-frontend
+  ports:
+    - port: 80
+      targetPort: 80
