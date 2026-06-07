@@ -55,3 +55,4 @@ htmlcov/
 .sisyphus/
 .claude/
 .qa-artifacts/
+.interview/
