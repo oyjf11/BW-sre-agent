@@ -22,9 +22,6 @@ def init_fts_db(db_path: str) -> None:
                 tokenize='unicode61 remove_diacritics 1'
             )
         """)
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_rag_meta_chunk ON rag_chunks_meta(chunk_id)"
-        )
         conn.commit()
     finally:
         conn.close()
@@ -34,6 +31,7 @@ def write_chunks_to_fts(db_path: str, chunks: List[Dict[str, Any]]) -> None:
     """Write chunks to FTS5 index. Idempotent: deletes existing chunk_id before insert."""
     conn = sqlite3.connect(db_path)
     try:
+        conn.execute("BEGIN")
         for chunk in chunks:
             chunk_id = chunk["chunk_id"]
             content = chunk.get("content", "")
@@ -50,6 +48,9 @@ def write_chunks_to_fts(db_path: str, chunks: List[Dict[str, Any]]) -> None:
                 (chunk_id, doc_type, service),
             )
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -86,8 +87,10 @@ def search_fts(db_path: str, query: str, top_k: int = 10) -> List[Dict[str, Any]
             """,
             (fts_query, top_k),
         ).fetchall()
-    except sqlite3.OperationalError:
-        return []
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e):
+            return []  # index not yet built — expected during cold start
+        raise
     finally:
         conn.close()
 
