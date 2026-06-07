@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
-> 生成时间: 2026-04-06 | 更新时间: 2026-06-06
-> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；Phase 8 启动前 real adapter 收口已完成；2026-06-06 已修复 specialist pool 审批门禁回归与测试隔离问题；LLM 已切换至 DeepSeek，具体模型由 `DEEPSEEK_MODEL` 配置；Phase 8 离线评测尚未启动。
+> 生成时间: 2026-04-06 | 更新时间: 2026-06-07
+> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；Phase 8 启动前 real adapter 收口已完成；2026-06-06 已修复 specialist pool 审批门禁回归与测试隔离问题；LLM 已切换至 DeepSeek，具体模型由 `DEEPSEEK_MODEL` 配置；Phase 8 离线评测框架已完成，真实 DeepSeek 单 case smoke 已生成报告，全量 repeat=3 仍需在 specialist timeout 优化后重跑。
 
 ---
 
@@ -370,42 +370,28 @@
 
 ---
 
-## Phase 8: 离线评测（P2，预计 2-3 天）
+## Phase 8: 离线评测（P2，预计 2-3 天） — ✅ 框架已完成（2026-06-07）
 
 ### Task 8.1: 评测框架搭建
 
 **目标**: 一键回放测试案例，输出命中率等指标
 
-**步骤**:
-1. 在 `backend/app/evals/datasets/` 创建 10-20 个测试案例 JSON：
-   ```json
-   {
-     "case_id": "case_001",
-     "ticket": { "description": "...", "service": "payment-service", ... },
-     "expected_root_cause": "deployment_regression",
-     "expected_risk_level": "HIGH",
-     "tool_fixtures": {
-       "query_logs": { "返回的 mock 数据" },
-       "query_metrics": { "返回的 mock 数据" }
-     }
-   }
-   ```
+**已完成**:
+- `IncidentType` 封闭枚举已接入 `RootCauseCandidate` 与 `diagnose_node`，diagnose 输出结构化 `incident_type` 并按 confidence 降序。
+- `backend/app/evals/` 已新增 case loader、fixture context、scorer、metrics、report、executors、runner、replay_runner CLI。
+- `backend/app/evals/datasets/` 已提供 11 个首期 case，覆盖全部核心 `IncidentType`，并包含审批场景。
+- CLI 支持 `direct` / `runner` / `compare` 三种模式，报告输出 JSON + Markdown，并显式标注“真实 LLM、非 CI 指标”。
 
-2. 实现 `backend/app/evals/replay_runner.py`：
-   - 读取 dataset，用 fixture 替换 tool gateway 的真实调用
-   - 运行 graph，收集 root_cause_candidates 和 remediation_plan
-   - 与 expected 对比
+**已验证**:
+- `python -m pytest app/tests/test_eval_*.py app/tests/test_incident_type.py app/tests/test_diagnose_structured.py -q`：74 passed, 2 warnings。
+- `python -m pytest app/tests/ -x -q`：326 passed, 2 warnings。
+- 真实 DeepSeek 单 case smoke：
+  `python -m app.evals.replay_runner --mode direct --dataset app/evals/datasets/case_01_deployment_regression.json --repeat 1 --output /tmp/opspilot_eval_smoke.json`
+  已生成 `/tmp/opspilot_eval_smoke.json` 与 `/tmp/opspilot_eval_smoke.md`。
 
-3. 实现 `backend/app/evals/metrics.py`：
-   - Top1/Top3 根因命中率
-   - 风险等级判断准确率
-   - 平均步骤数/延迟/token 消耗
-
-4. 添加 CLI 入口：`python -m app.evals.replay_runner --dataset datasets/ --output report.json`
-
-**验收**:
-- 运行命令输出 JSON 格式的评测报告
-- 报告包含命中率、平均步骤数等指标
+**待补验收**:
+- 全量真实 DeepSeek `--repeat 3` 运行因 specialist LLM timeout 耗时过长被终止，需在 Phase 9/后续优化 specialist timeout 或并发策略后重跑。
+- compare 模式真实 DB 冒烟尚未执行，需在全量真实评测可控后补跑。
 
 ---
 
@@ -659,7 +645,7 @@ Phase 6 (Task 6.1)          ── ✅ 已完成（2026-05-28）
 Phase 7 (Task 7.1)          ── ✅ 已完成，LangSmith 真实验证通过（2026-05-31）
 Phase 8 启动前收口          ── ✅ 已完成（2026-06-01）
 
-Phase 8 (Task 8.1)         ── 最后，2-3 天
+Phase 8 (Task 8.1)         ── ✅ 框架完成；真实全量 repeat=3 待 timeout 优化后补验收
 
 Phase 9 短板补齐:
   Task 9.1  (RAG hybrid/rerank/eval)      ─┐

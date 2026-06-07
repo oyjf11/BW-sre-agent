@@ -1,0 +1,23 @@
+{
+  "case_id": "case_05_database_failure",
+  "description": "Database lock wait and slow queries degraded checkout.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-05",
+    "title": "结算接口大量超时",
+    "description": "MySQL 出现锁等待和慢查询，结算接口超时率显著升高。",
+    "service": "checkout-service",
+    "env": "prod",
+    "severity": "P1",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_db_processlist": {"processes": [{"state": "Waiting for table metadata lock", "time": 120}]},
+    "query_db_slow_queries": {"queries": [{"sql": "update orders set status=...", "latency_ms": 9000}]},
+    "query_logs": {"logs": [{"level": "ERROR", "msg": "Lock wait timeout exceeded"}], "count": 18}
+  },
+  "expected": {
+    "incident_type": "database_failure",
+    "risk_decision": "NEEDS_APPROVAL",
+    "final_status": "WAITING_HUMAN"
+  }
+}

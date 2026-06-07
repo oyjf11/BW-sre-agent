@@ -1,0 +1,22 @@
+{
+  "case_id": "case_04_dependency_failure",
+  "description": "Downstream fraud provider outage broke order creation.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-04",
+    "title": "下单链路调用风控失败",
+    "description": "订单服务自身无发布，调用 fraud-api 出现 503，导致下单失败。",
+    "service": "order-service",
+    "env": "prod",
+    "severity": "P2",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_logs": {"logs": [{"level": "ERROR", "msg": "fraud-api returned 503"}], "count": 27},
+    "query_metrics": {"metrics": {"dependency_5xx": {"values": [0.23]}}}
+  },
+  "expected": {
+    "incident_type": "dependency_failure",
+    "risk_decision": "LOW_ONLY",
+    "final_status": "COMPLETED"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "case_id": "case_09_service_degradation",
+  "description": "Service p99 regressed without clear deploy, resource, dependency, or DB signal.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-09",
+    "title": "推荐服务 p99 变慢",
+    "description": "推荐服务 p99 从 300ms 升至 2s，无发布、依赖、数据库或资源耗尽证据。",
+    "service": "recommendation-service",
+    "env": "staging",
+    "severity": "P3",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_metrics": {"metrics": {"latency_p99": {"values": [2.0]}, "cpu_usage": {"values": [0.45]}}},
+    "query_logs": {"logs": [{"level": "WARN", "msg": "slow in-process ranking path"}], "count": 9}
+  },
+  "expected": {
+    "incident_type": "service_degradation",
+    "risk_decision": "LOW_ONLY",
+    "final_status": "COMPLETED"
+  }
+}

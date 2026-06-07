@@ -1,0 +1,23 @@
+{
+  "case_id": "case_01_deployment_regression",
+  "description": "Deployment introduced 5xx errors immediately after release.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-01",
+    "title": "支付服务发布后 5xx 升高",
+    "description": "发布 v2.3.1 后部分用户下单失败，错误率从 0.2% 升至 8%。",
+    "service": "payment-service",
+    "env": "staging",
+    "severity": "P2",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_logs": {"logs": [{"level": "ERROR", "msg": "NullPointer in OrderHandler"}], "count": 42},
+    "query_deployments": {"deployments": [{"version": "v2.3.1", "at": "30m ago"}], "count": 1},
+    "query_metrics": {"metrics": {"error_rate": {"values": [0.08]}}}
+  },
+  "expected": {
+    "incident_type": "deployment_regression",
+    "risk_decision": "NEEDS_APPROVAL",
+    "final_status": "WAITING_HUMAN"
+  }
+}

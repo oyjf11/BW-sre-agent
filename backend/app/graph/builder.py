@@ -158,7 +158,7 @@ def _route_after_verify(state: IncidentAgentState) -> str:
     return "node_rca"
 
 
-def create_incident_graph() -> StateGraph:
+def create_incident_graph(checkpointer=None) -> StateGraph:
     """
     Create and compile the incident handling LangGraph.
 
@@ -269,4 +269,4 @@ def create_incident_graph() -> StateGraph:
     graph.add_edge("node_approval_interrupt", END)
     graph.add_edge("node_rca", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)

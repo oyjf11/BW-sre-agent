@@ -1,0 +1,22 @@
+{
+  "case_id": "case_11_other_label_escape",
+  "description": "A known business-rule incident outside the first taxonomy should map to other.",
+  "ticket": {
+    "ticket_id": "INC-EVAL-11",
+    "title": "会员折扣计算错误",
+    "description": "促销规则配置合法但业务规则理解错误，导致部分会员折扣计算偏差。",
+    "service": "promotion-service",
+    "env": "staging",
+    "severity": "P3",
+    "source": "manual"
+  },
+  "tool_fixtures": {
+    "query_logs": {"logs": [{"level": "INFO", "msg": "business rule matched legacy discount path"}], "count": 11},
+    "query_metrics": {"metrics": {"discount_mismatch_count": {"values": [120]}}}
+  },
+  "expected": {
+    "incident_type": "other",
+    "risk_decision": "LOW_ONLY",
+    "final_status": "COMPLETED"
+  }
+}

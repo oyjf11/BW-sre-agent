@@ -9,6 +9,7 @@ from app.models.incident import IncidentTicket
 from app.models.triage import TriageResult
 from app.models.evidence import EvidenceItem
 from app.models.root_cause import RootCauseCandidate
+from app.models.incident_type import IncidentType
 from app.models.remediation import RemediationPlan, ActionSpec
 from app.models.approval import ApprovalRequest
 from app.models.rca import RcaReport
@@ -76,7 +77,7 @@ def _triage_by_rules(title: str, description: str, severity: str, service: str, 
     # Deployment regression pattern
     if any(kw in text for kw in ["deploy", "rollback", "release", "版本", "发布", "回滚"]):
         return TriageResult(
-            incident_type="deployment_regression",
+            incident_type=IncidentType.deployment_regression.value,
             severity=severity or "P1",
             suspected_services=[service] if service else [],
             suggested_time_window={"start": "2h ago", "end": "now"},
@@ -87,7 +88,7 @@ def _triage_by_rules(title: str, description: str, severity: str, service: str, 
     # Resource exhaustion pattern
     if any(kw in text for kw in ["cpu", "memory", "oom", "disk", "内存", "磁盘"]):
         return TriageResult(
-            incident_type="resource_exhaustion",
+            incident_type=IncidentType.resource_exhaustion.value,
             severity=severity or "P2",
             suspected_services=[service] if service else [],
             suggested_time_window={"start": "1h ago", "end": "now"},
@@ -101,7 +102,7 @@ def _triage_by_rules(title: str, description: str, severity: str, service: str, 
         for kw in ["timeout", "connection refused", "downstream", "依赖", "超时", "503", "502"]
     ):
         return TriageResult(
-            incident_type="dependency_failure",
+            incident_type=IncidentType.dependency_failure.value,
             severity=severity or "P2",
             suspected_services=[service] if service else [],
             suggested_time_window={"start": "1h ago", "end": "now"},
@@ -155,7 +156,7 @@ Respond in JSON format."""
             tw = {"start": tw, "end": "now"}
 
         return TriageResult(
-            incident_type=llm_data.get("incident_type", "service_degradation"),
+            incident_type=llm_data.get("incident_type", IncidentType.service_degradation.value),
             severity=llm_data.get("severity", severity or "P2"),
             suspected_services=llm_data.get("suspected_services", [service] if service else []),
             suggested_time_window=tw,
@@ -169,7 +170,7 @@ Respond in JSON format."""
 def _triage_fallback(title: str, severity: str, service: str):
     """Stage 3: Fallback triage when rules and LLM both fail."""
     return TriageResult(
-        incident_type="service_degradation",
+        incident_type=IncidentType.service_degradation.value,
         severity=severity or "P2",
         suspected_services=[service] if service else [],
         suggested_time_window={"start": "1h ago", "end": "now"},
@@ -256,21 +257,21 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
         )
 
     def _add_db_tasks(svc: str, incident: str):
-        if incident == "resource_exhaustion":
+        if incident == IncidentType.resource_exhaustion.value:
             _add("db", "query_db_variables", 2, svc)
             _add("db", "query_db_processlist", 2, svc)
             _add("db", "query_db_slow_queries", 3, svc, {"threshold_seconds": 5})
-        elif incident == "dependency_failure":
+        elif incident == IncidentType.dependency_failure.value:
             _add("db", "query_db_processlist", 2, svc)
             _add("db", "query_db_slow_queries", 2, svc, {"threshold_seconds": 5})
-        elif incident == "deployment_regression":
+        elif incident == IncidentType.deployment_regression.value:
             _add("db", "query_db_slow_queries", 4, svc, {"threshold_seconds": 5})
         else:
             _add("db", "query_db_processlist", 3, svc)
             _add("db", "query_db_variables", 3, svc)
 
     def _add_k8s_tasks(svc: str, incident: str):
-        if incident == "resource_exhaustion":
+        if incident == IncidentType.resource_exhaustion.value:
             _add("k8s", "query_k8s_nodes", 1, svc)
             _add("k8s", "query_k8s_deployment_status", 2, svc)
             _add("k8s", "query_k8s_pods", 2, svc)
@@ -279,13 +280,13 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
             _add("k8s", "query_k8s_resource_quotas", 3, svc)
             _add("k8s", "query_k8s_pod_logs_summary", 4, svc, {"tail_lines": 100})
             _add("k8s", "query_k8s_pvc", 4, svc)
-        elif incident == "dependency_failure":
+        elif incident == IncidentType.dependency_failure.value:
             _add("k8s", "query_k8s_deployment_status", 2, svc)
             _add("k8s", "query_k8s_events", 2, svc, {"limit": 20})
             _add("k8s", "query_k8s_services", 2, svc)
             _add("k8s", "query_k8s_pod_logs_summary", 3, svc, {"tail_lines": 100})
             _add("k8s", "query_k8s_ingresses", 3, svc)
-        elif incident == "deployment_regression":
+        elif incident == IncidentType.deployment_regression.value:
             _add("k8s", "query_k8s_deployment_status", 2, svc)
             _add("k8s", "query_k8s_pods", 3, svc)
             _add("k8s", "query_k8s_events", 3, svc, {"limit": 20})
@@ -301,7 +302,7 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
             _add("k8s", "query_k8s_daemonsets", 5, svc)
             _add("k8s", "query_k8s_jobs", 5, svc)
 
-    if incident_type == "deployment_regression":
+    if incident_type == IncidentType.deployment_regression.value:
         # Deployments + logs first
         for s in services:
             _add("deployments", "query_deployments", 1, s)
@@ -312,7 +313,7 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
             _add("runbook", "query_runbook", 4, s, {"incident_type": incident_type})
         rationale = "Deployment regression: prioritize deployment history, K8s rollout state, logs, and DB slow query evidence"
 
-    elif incident_type == "resource_exhaustion":
+    elif incident_type == IncidentType.resource_exhaustion.value:
         # Metrics + k8s first
         for s in services:
             _add("metrics", "query_metrics", 1, s)
@@ -323,7 +324,7 @@ def planner_node(state: IncidentAgentState) -> IncidentAgentState:
             _add("runbook", "query_runbook", 5, s, {"incident_type": incident_type})
         rationale = "Resource exhaustion: prioritize metrics, K8s saturation signals, and DB capacity evidence"
 
-    elif incident_type == "dependency_failure":
+    elif incident_type == IncidentType.dependency_failure.value:
         # Logs + history + lb first
         for s in services:
             _add("logs", "query_logs", 1, s)
@@ -861,6 +862,27 @@ def _evidence_aggregate_v2(state: IncidentAgentState) -> IncidentAgentState:
     return state
 
 
+def _coerce_incident_type(raw: Any) -> "IncidentType":
+    """Validate an LLM-provided incident_type into the closed enum.
+
+    - Valid enum value -> that member.
+    - Missing / None -> unknown (insufficient signal).
+    - Non-empty but illegal -> other (model decided a cause outside the taxonomy).
+    """
+    if isinstance(raw, IncidentType):
+        return raw
+    if raw is None:
+        return IncidentType.unknown
+    value = str(raw).strip()
+    if value == "":
+        return IncidentType.unknown
+    try:
+        return IncidentType(value)
+    except ValueError:
+        logger.warning("diagnose: illegal incident_type %r -> downgraded to 'other'", raw)
+        return IncidentType.other
+
+
 def diagnose_node(state: IncidentAgentState) -> IncidentAgentState:
     import logging
 
@@ -906,6 +928,7 @@ def diagnose_node(state: IncidentAgentState) -> IncidentAgentState:
         if hasattr(triage, "incident_type")
         else triage.get("incident_type", "unknown")
     )
+    incident_type_values = ", ".join(t.value for t in IncidentType)
 
     # LLM prompt for root cause analysis
     diagnose_prompt = f"""Analyze this incident and provide root cause candidates.
@@ -923,12 +946,17 @@ def diagnose_node(state: IncidentAgentState) -> IncidentAgentState:
 Provide 2-3 root cause candidates in JSON format:
 [
   {{
+    "incident_type": "EXACTLY ONE of: {incident_type_values}",
     "hypothesis": "brief description of possible root cause",
     "confidence": 0.0-1.0,
-    "supporting_evidence": "why this evidence supports this hypothesis",
     "next_checks": ["action to verify", "another check"]
   }}
 ]
+
+incident_type rules:
+- Use exactly one value from this closed enum: {incident_type_values}.
+- Use "unknown" when evidence is insufficient to choose a cause.
+- Use "other" only when you have a concrete cause outside this taxonomy.
 
 Respond in JSON format only."""
 
@@ -959,18 +987,44 @@ Respond in JSON format only."""
             if json_match:
                 llm_candidates = json.loads(json_match.group())
                 if isinstance(llm_candidates, list):
-                    for c in llm_candidates[:3]:
-                        candidate = RootCauseCandidate(
-                            candidate_id=f"cand_{uuid.uuid4().hex[:8]}",
-                            hypothesis=c.get("hypothesis", "Unknown"),
-                            confidence=c.get("confidence", 0.5),
-                            supporting_evidence_ids=[],
-                            contradicting_evidence_ids=[],
-                            next_checks=c.get("next_checks", []),
-                        )
+                    for index, c in enumerate(llm_candidates[:3]):
+                        if not isinstance(c, dict):
+                            logger.warning(
+                                "diagnose: skipping invalid candidate at index %s: "
+                                "expected object, got %s",
+                                index,
+                                type(c).__name__,
+                            )
+                            continue
+                        try:
+                            raw_type = c.get("incident_type")
+                            incident_type = _coerce_incident_type(raw_type)
+                            candidate = RootCauseCandidate(
+                                candidate_id=f"cand_{uuid.uuid4().hex[:8]}",
+                                hypothesis=c.get("hypothesis", "Unknown"),
+                                confidence=c.get("confidence", 0.5),
+                                incident_type=incident_type,
+                                supporting_evidence_ids=[],
+                                contradicting_evidence_ids=[],
+                                next_checks=c.get("next_checks", []),
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "diagnose: skipping invalid candidate at index %s: %s",
+                                index,
+                                e,
+                            )
+                            continue
                         candidates.append(candidate)
-        except Exception:
-            pass
+                else:
+                    logger.warning(
+                        "diagnose: expected LLM candidates array, got %s",
+                        type(llm_candidates).__name__,
+                    )
+            else:
+                logger.warning("diagnose: LLM response did not contain a candidate array")
+        except Exception as e:
+            logger.warning("diagnose: failed to parse LLM candidates: %s", e)
 
     # Fallback if LLM failed
     if not candidates:
@@ -978,6 +1032,7 @@ Respond in JSON format only."""
             candidate_id=f"cand_{uuid.uuid4().hex[:8]}",
             hypothesis="High resource usage causing degradation",
             confidence=0.7,
+            incident_type=IncidentType.unknown,
             supporting_evidence_ids=[],
             contradicting_evidence_ids=[],
             next_checks=["Check metric thresholds", "Review scaling policies"],
@@ -988,11 +1043,17 @@ Respond in JSON format only."""
             candidate_id=f"cand_{uuid.uuid4().hex[:8]}",
             hypothesis="Recent deployment may have introduced the issue",
             confidence=0.5,
+            incident_type=IncidentType.unknown,
             supporting_evidence_ids=[],
             contradicting_evidence_ids=[],
             next_checks=["Check deployment logs", "Verify rollback"],
         )
         candidates.append(candidate)
+
+    candidates.sort(
+        key=lambda c: c.confidence if hasattr(c, "confidence") else 0.0,
+        reverse=True,
+    )
 
     state["root_cause_candidates"] = candidates
     state["status"] = RunStatus.DIAGNOSED
