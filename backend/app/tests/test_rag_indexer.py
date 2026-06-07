@@ -80,6 +80,9 @@ def test_index_documents_returns_chunk_counts(monkeypatch):
 
     fake_index = FakeIndex()
     monkeypatch.setattr("app.rag.indexer.build_index", lambda: fake_index)
+    monkeypatch.setattr("app.rag.indexer.get_fts_db_path", lambda: ":memory:")
+    monkeypatch.setattr("app.rag.indexer.init_fts_db", lambda db_path: None)
+    monkeypatch.setattr("app.rag.indexer.write_chunks_to_fts", lambda db_path, chunks: None)
 
     result = index_documents(
         [
@@ -153,3 +156,40 @@ def test_index_confirmed_rca_reports_skips_unconfirmed_reports(monkeypatch):
         assert indexed["docs"][0].metadata["service"] == "payment-service"
     finally:
         db.close()
+
+
+def test_index_documents_writes_to_fts(tmp_path, monkeypatch):
+    """index_documents should write chunks to FTS5 alongside ChromaDB."""
+    from unittest.mock import MagicMock, patch
+    from app.rag.indexer import index_documents
+    from app.rag.schemas import KnowledgeDocument
+
+    written_chunks = []
+
+    def fake_write_chunks(db_path, chunks):
+        written_chunks.extend(chunks)
+
+    with patch("app.rag.indexer.build_index") as mock_index, \
+         patch("app.rag.indexer.get_fts_db_path", return_value=str(tmp_path / "test_fts.db")), \
+         patch("app.rag.indexer.write_chunks_to_fts", side_effect=fake_write_chunks), \
+         patch("app.rag.indexer.init_fts_db"):
+        mock_index.return_value.insert_nodes = MagicMock()
+
+        from llama_index.core.node_parser import SentenceSplitter
+        real_splitter = SentenceSplitter(chunk_size=512, chunk_overlap=80)
+
+        with patch("app.rag.indexer.SentenceSplitter", return_value=real_splitter):
+            result = index_documents([
+                KnowledgeDocument(
+                    doc_id="rca:run-1",
+                    doc_type="rca",
+                    text="数据库连接池耗尽，支付服务5xx升高",
+                    metadata={"service": "payment-service", "env": "staging"},
+                )
+            ])
+
+    assert result.document_count == 1
+    assert len(written_chunks) >= 1
+    assert written_chunks[0]["doc_type"] == "rca"
+    assert "chunk_id" in written_chunks[0]
+    assert "content" in written_chunks[0]

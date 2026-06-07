@@ -131,3 +131,72 @@ def test_rerank_respects_top_n(monkeypatch):
 
     result_zero = rerank("query", chunks, top_n=0)
     assert len(result_zero) == 5
+
+
+def test_hybrid_retrieve_merges_vector_and_fts(monkeypatch):
+    """retrieve() should call both vector and FTS search and RRF-merge results."""
+    from unittest.mock import patch, MagicMock
+    from app.rag.retriever import retrieve
+    from app.rag.schemas import RetrievedChunk
+
+    vector_chunk = RetrievedChunk(
+        doc_id="rca:run-1", chunk_id="c1", doc_type="rca",
+        content="数据库连接池耗尽", score=0.85,
+        metadata={"service": "payment-service"},
+    )
+    fts_chunk = RetrievedChunk(
+        doc_id="runbook:pay", chunk_id="c2", doc_type="runbook",
+        content="检查连接池配置", score=3.2,
+        metadata={"service": "payment-service"},
+    )
+
+    with patch("app.rag.retriever.RagSettings") as MockSettings, \
+         patch("app.rag.retriever._vector_retrieve", return_value=[vector_chunk]), \
+         patch("app.rag.retriever._fts_retrieve", return_value=[fts_chunk]):
+
+        settings = MagicMock()
+        settings.enabled = True
+        settings.top_k = 5
+        settings.enable_reranker = False
+        settings.fts_db_path = "/tmp/fake.db"
+        MockSettings.return_value = settings
+
+        results = retrieve("数据库 连接池", {}, top_k=5)
+
+    chunk_ids = [r.chunk_id for r in results]
+    assert "c1" in chunk_ids
+    assert "c2" in chunk_ids
+
+
+def test_rrf_merge_deduplicates_and_ranks():
+    """RRF merge should deduplicate by chunk_id and give higher rank to items in both lists."""
+    from app.rag.retriever import _rrf_merge
+    from app.rag.schemas import RetrievedChunk
+
+    def make_chunk(cid, score):
+        return RetrievedChunk(
+            doc_id=f"doc-{cid}", chunk_id=cid, doc_type="rca",
+            content="content", score=score, metadata={},
+        )
+
+    vec = [make_chunk("c1", 0.9), make_chunk("c2", 0.7)]
+    fts = [make_chunk("c2", 3.0), make_chunk("c3", 2.0)]  # c2 in both
+
+    merged = _rrf_merge(vec, fts, top_k=3)
+    ids = [c.chunk_id for c in merged]
+    assert "c2" in ids
+    assert len(ids) == 3
+    assert ids.index("c2") < ids.index("c3")  # c2 beats c3 (only in fts)
+
+
+def test_retrieve_returns_empty_when_rag_disabled(monkeypatch):
+    from unittest.mock import patch, MagicMock
+    from app.rag.retriever import retrieve
+
+    with patch("app.rag.retriever.RagSettings") as MockSettings:
+        settings = MagicMock()
+        settings.enabled = False
+        MockSettings.return_value = settings
+        results = retrieve("任意查询", {})
+
+    assert results == []

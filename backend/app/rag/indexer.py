@@ -8,6 +8,7 @@ from llama_index.core.node_parser import SentenceSplitter
 from sqlalchemy.orm import Session
 
 from app.models.db_models import IncidentRcaReport
+from app.rag.keyword_index import init_fts_db, write_chunks_to_fts
 from app.rag.schemas import IndexingResult, KnowledgeDocument
 from app.rag.settings import RagSettings
 from app.rag.store import build_index
@@ -70,6 +71,19 @@ def index_documents(documents: Iterable[KnowledgeDocument]) -> IndexingResult:
     )
     nodes = splitter.get_nodes_from_documents(_to_llama_documents(docs))
     build_index().insert_nodes(nodes)
+    # Sync to FTS5 keyword index
+    fts_db_path = get_fts_db_path()
+    init_fts_db(fts_db_path)
+    fts_chunks = [
+        {
+            "chunk_id": node.node_id,
+            "content": node.text,
+            "doc_type": node.metadata.get("doc_type", ""),
+            "service": node.metadata.get("service", ""),
+        }
+        for node in nodes
+    ]
+    write_chunks_to_fts(fts_db_path, fts_chunks)
     return IndexingResult(
         document_count=len(docs),
         chunk_count=len(nodes),
@@ -120,3 +134,7 @@ def index_confirmed_rca_reports(db: Session) -> IndexingResult:
     )
     documents = [build_rca_document(report, runs_repo.get(report.run_id)) for report in reports]
     return index_documents(documents)
+
+
+def get_fts_db_path() -> str:
+    return RagSettings().fts_db_path

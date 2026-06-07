@@ -3,6 +3,7 @@ agents:
     category: k8s
     description: K8s 集群状态诊断专家，分析 Deployment/Pod/Events
     enabled: true
+    timeout_ms: 90000
     max_tool_rounds: 3
     system_prompt_version: "1.0.0"
     tool_names:
@@ -60,6 +61,7 @@ agents:
     category: db
     description: 数据库诊断专家，分析连接池、慢查询、锁等待和配置
     enabled: true
+    timeout_ms: 90000
     max_tool_rounds: 3
     system_prompt_version: "1.0.0"
     tool_names:
@@ -116,6 +118,7 @@ agents:
     category: logs
     description: 应用日志分析专家，从日志中发现异常模式和错误堆栈
     enabled: true
+    timeout_ms: 90000
     max_tool_rounds: 2
     system_prompt_version: "1.0.0"
     tool_names:
@@ -167,6 +170,7 @@ agents:
     category: metrics
     description: 指标分析专家，分析 CPU/内存/QPS/P95/错误率趋势
     enabled: true
+    timeout_ms: 90000
     max_tool_rounds: 2
     system_prompt_version: "1.0.0"
     tool_names:
@@ -219,6 +223,7 @@ agents:
     category: deployments
     description: 部署变更分析专家，判断发布是否诱发故障
     enabled: true
+    timeout_ms: 90000
     max_tool_rounds: 2
     system_prompt_version: "1.0.0"
     tool_names:

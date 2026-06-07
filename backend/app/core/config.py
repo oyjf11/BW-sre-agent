@@ -95,6 +95,7 @@ class Settings(BaseSettings):
     rag_top_k: int = 5
     rag_enable_reranker: bool = False
     rag_reranker_top_n: int = 5
+    rag_fts_db_path: str = "./storage/rag_fts.db"
 
     agent_feature_specialist_pool: bool = False
 

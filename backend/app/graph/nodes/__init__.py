@@ -565,7 +565,7 @@ async def _evidence_fanout_v2(state: IncidentAgentState) -> IncidentAgentState:
                     SpecialistAgent(agent_configs[t.agent_id]).run(t, run_id)
                     for t in enabled_tasks
                 ], return_exceptions=True),
-                timeout=60.0,
+                timeout=150.0,
             )
         except asyncio.TimeoutError:
             gathered = [TimeoutError("fanout total timeout") for _ in enabled_tasks]
