@@ -53,3 +53,10 @@ def test_search_fts_returns_score_field(fts_db):
     results = search_fts(fts_db, "慢查询", top_k=5)
     assert "score" in results[0]
     assert results[0]["score"] > 0
+
+
+def test_rag_settings_has_fts_db_path():
+    from app.rag.settings import RagSettings
+    s = RagSettings()
+    assert hasattr(s, "fts_db_path")
+    assert isinstance(s.fts_db_path, str)

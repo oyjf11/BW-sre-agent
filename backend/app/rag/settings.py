@@ -15,6 +15,7 @@ class RagSettings:
     top_k: int = 5
     enable_reranker: bool = False
     reranker_top_n: int = 5
+    fts_db_path: str = "./storage/rag_fts.db"
 
     def __init__(self):
         settings = get_settings()
@@ -28,3 +29,4 @@ class RagSettings:
         object.__setattr__(self, "top_k", settings.rag_top_k)
         object.__setattr__(self, "enable_reranker", settings.rag_enable_reranker)
         object.__setattr__(self, "reranker_top_n", settings.rag_reranker_top_n)
+        object.__setattr__(self, "fts_db_path", settings.rag_fts_db_path)
