@@ -191,7 +191,7 @@ class SpecialistAgent:
             tracer.add_event(span_id, round_echo, {"remaining_ms": remaining_ms})
 
             try:
-                llm_deadline = min(remaining_ms / 1000, 15.0)
+                llm_deadline = min(remaining_ms / 1000, 30.0)
                 resp = await asyncio.wait_for(
                     llm_client.complete_async(
                         self.messages, tools=tools, temperature=0.7, max_tokens=2000,

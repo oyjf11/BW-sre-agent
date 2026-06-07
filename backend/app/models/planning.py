@@ -75,7 +75,7 @@ class AgentTask(BaseModel):
     time_window_start: Optional[str] = Field(default=None, description="ISO 8601")
     time_window_end: Optional[str] = Field(default=None, description="ISO 8601")
     extra_context: Dict[str, Any] = Field(default_factory=dict, description="title/description etc.")
-    timeout_ms: int = Field(default=30000, description="Agent total timeout in ms")
+    timeout_ms: int = Field(default=90000, description="Agent total timeout in ms")
 
 
 class AnomalySignal(BaseModel):
