@@ -48,8 +48,8 @@ Thumbs.db
 htmlcov/
 
 # Agent 工具目录
-.agent/
-.agents/
+# .agent/
+# .agents/
 # .opencode/
 .qoder/
 .sisyphus/
