@@ -1,5 +1,5 @@
 # Core
-fastapi==0.109.0
+fastapi>=0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
@@ -13,11 +13,12 @@ aiomysql>=0.2.0
 
 # LangGraph & LangChain
 langgraph==0.0.55
-langchain>=0.1.0
+langchain>=0.1.0,<0.3.0
 langchain-openai>=0.1.0
+langsmith>=0.1.17,<0.2.0
 
 # HTTP & Networking
-httpx==0.26.0
+httpx>=0.27.0
 sse-starlette==1.8.2
 
 # Retry & Resilience
@@ -28,7 +29,6 @@ structlog==24.1.0
 loguru==0.7.2
 
 # Observability
-langsmith>=0.3.18
 langfuse>=3.0.0
 
 # Utilities
@@ -41,17 +41,14 @@ alibabacloud-tea-openapi>=0.3.0
 alibabacloud-cms20190101>=2.0.0
 oss2>=2.18.0
 
-# RAG
-llama-index>=0.10.0
-llama-index-vector-stores-chroma>=0.1.0
-llama-index-embeddings-huggingface>=0.2.0
-chromadb>=0.5.0
-sentence-transformers>=2.7.0
+# RAG (optional - comment out to reduce image size)
+# llama-index>=0.10.0
+# llama-index-vector-stores-chroma>=0.1.0
+# llama-index-embeddings-huggingface>=0.2.0
+# chromadb>=0.5.0
+# sentence-transformers>=2.7.0
 
 # Testing
 pytest==7.4.4
 pytest-asyncio==0.23.3
 pytest-mock==3.12.0
-
-# Development
-# python-devtools==0.3.1
