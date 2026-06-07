@@ -45,8 +45,8 @@ aiomysql>=0.2.0
 
 ```yaml
 # 构建步骤
-docker build -t ${ACR_REGISTRY}/opspilot-backend:${IMAGE_TAG} ./backend
-docker push ${ACR_REGISTRY}/opspilot-backend:${IMAGE_TAG}
+docker build -t registry.cn-shenzhen.aliyuncs.com/hoo-ops/opspilot-backend:${IMAGE_TAG} ./backend
+docker push registry.cn-shenzhen.aliyuncs.com/hoo-ops/opspilot-backend:${IMAGE_TAG}
 
 # 部署步骤（envsubst 注入 Secret 变量）
 kubectl create namespace opspilot --dry-run=client -o yaml | kubectl apply -f -
@@ -62,10 +62,10 @@ kubectl apply -f k8s/backend-deployment.yaml
 ```yaml
 # 构建步骤（VITE_API_URL 传入后端域名）
 docker build \
-  --build-arg VITE_API_URL=https://${BACKEND_DOMAIN} \
-  -t ${ACR_REGISTRY}/opspilot-frontend:${IMAGE_TAG} \
+  --build-arg VITE_API_URL=https://ops-api.yunhan100.com \
+  -t registry.cn-shenzhen.aliyuncs.com/hoo-ops/opspilot-frontend:${IMAGE_TAG} \
   ./frontend
-docker push ${ACR_REGISTRY}/opspilot-frontend:${IMAGE_TAG}
+docker push registry.cn-shenzhen.aliyuncs.com/hoo-ops/opspilot-frontend:${IMAGE_TAG}
 
 # 部署步骤
 sed -i "s|opspilot-frontend:latest|opspilot-frontend:${IMAGE_TAG}|g" k8s/frontend-deployment.yaml
@@ -85,7 +85,7 @@ kubectl get pods -n opspilot
 kubectl logs -n opspilot deployment/opspilot-backend
 
 # 健康检查
-curl https://<YOUR_BACKEND_DOMAIN>/healthz
+curl https://ops-api.yunhan100.com/healthz
 ```
 
 ---

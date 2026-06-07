@@ -11,7 +11,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: <YOUR_FRONTEND_DOMAIN>
+    - host: ops.yunhan100.com
       http:
         paths:
           - path: /
@@ -21,7 +21,7 @@ spec:
                 name: opspilot-frontend
                 port:
                   number: 80
-    - host: <YOUR_BACKEND_DOMAIN>
+    - host: ops-api.yunhan100.com
       http:
         paths:
           - path: /

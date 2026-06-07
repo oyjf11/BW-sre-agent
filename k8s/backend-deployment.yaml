@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: <ACR_REGISTRY>/opspilot-backend:latest
+          image: registry-vpc.cn-shenzhen.aliyuncs.com/hoo-ops/opspilot-backend:latest
           ports:
             - containerPort: 8000
           envFrom:

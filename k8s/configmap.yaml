@@ -13,4 +13,4 @@ data:
   SSE_TIMEOUT: "300"
   TOOL_ADAPTER_MODE: "real"
   # 允许前端域名，替换为你的实际前端地址
-  CORS_ORIGINS: '["https://<YOUR_FRONTEND_DOMAIN>"]'
+  CORS_ORIGINS: '["https://ops.yunhan100.com"]'
