@@ -37,6 +37,15 @@ def _has_deployment_evidence(items: List[EvidenceItem]) -> bool:
     return False
 
 
+def _field_value(obj: Any, field_name: str, default: Any = None) -> Any:
+    value = (
+        getattr(obj, field_name, default)
+        if hasattr(obj, field_name)
+        else obj.get(field_name, default)
+    )
+    return value.value if hasattr(value, "value") else value
+
+
 def intake_node(state: IncidentAgentState) -> IncidentAgentState:
     from app.normalizers import normalize_env, normalize_service, normalize_time_range
 
@@ -1141,8 +1150,9 @@ def remediation_node(state: IncidentAgentState) -> IncidentAgentState:
     actions = []
     if candidates and valid_evidence_ids:
         top_candidate = candidates[0]
+        incident_type = _field_value(top_candidate, "incident_type", IncidentType.unknown.value)
         has_deployment_signal = (
-            "deployment" in top_candidate.hypothesis.lower()
+            str(incident_type) == IncidentType.deployment_regression.value
             and _has_deployment_evidence(evidence_items)
         )
         if has_deployment_signal:
@@ -1247,6 +1257,14 @@ def risk_gate_node(state: IncidentAgentState) -> IncidentAgentState:
         for a in actions
         if (a.risk_level if hasattr(a, "risk_level") else a.get("risk_level", "LOW")) == "CRITICAL"
     ]
+    prod_actions = [
+        a
+        for a in actions
+        if (
+            (a.env if hasattr(a, "env") else a.get("env", env)) == "prod"
+            or env == "prod"
+        )
+    ]
 
     # Capability preflight: check if execute_action is available
     action_types = [
@@ -1283,7 +1301,7 @@ def risk_gate_node(state: IncidentAgentState) -> IncidentAgentState:
             "retryable": False,
             "details": None,
         }
-    elif actions_requiring_approval or high_risk_actions or loop_guard_triggered:
+    elif actions_requiring_approval or high_risk_actions or prod_actions or loop_guard_triggered:
         state["risk_decision"] = "NEEDS_APPROVAL"
     else:
         state["risk_decision"] = "LOW_ONLY"
@@ -1815,12 +1833,21 @@ def rca_node(state: IncidentAgentState) -> IncidentAgentState:
             remediation_text += f"- {at}\n"
 
     execution_text = ""
-    for r in (execution_results or []) + (action_results or []):
+    seen_execution_result_ids = set()
+    merged_execution_results = (execution_results or []) if execution_results else (action_results or [])
+    for r in merged_execution_results:
         if r is None:
             continue
-        at = r.get("action_type", "unknown") if isinstance(r, dict) else "unknown"
-        success = r.get("success", False) if isinstance(r, dict) else False
-        err = r.get("error", "") if isinstance(r, dict) else ""
+        if not isinstance(r, dict):
+            continue
+        result_key = r.get("action_id") or id(r)
+        if result_key in seen_execution_result_ids:
+            continue
+        seen_execution_result_ids.add(result_key)
+        result_payload = r.get("result") or {}
+        at = r.get("action_type") or result_payload.get("action_type", "unknown")
+        success = r.get("success", False)
+        err = r.get("error", "")
         execution_text += f"- {at}: {'SUCCESS' if success else 'FAILED'}"
         if err:
             execution_text += f" ({err})"

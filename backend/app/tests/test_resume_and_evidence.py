@@ -32,7 +32,7 @@ def create_session_factory():
     return TestingSessionLocal
 
 
-def test_risk_gate_keeps_low_risk_action_out_of_approval():
+def test_risk_gate_requires_approval_for_prod_action_even_when_low_risk():
     state = {
         "ticket": {"env": "prod", "severity": "P2"},
         "remediation_plan": RemediationPlan(
@@ -57,7 +57,7 @@ def test_risk_gate_keeps_low_risk_action_out_of_approval():
 
     result = risk_gate_node(state)
 
-    assert result["risk_decision"] == "LOW_ONLY"
+    assert result["risk_decision"] == "NEEDS_APPROVAL"
 
 
 def test_approval_runtime_emits_single_resume_event(monkeypatch):
