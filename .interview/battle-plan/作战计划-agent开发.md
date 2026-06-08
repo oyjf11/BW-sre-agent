@@ -146,7 +146,7 @@
 32. 🔴 FastAPI async def 底层是怎么工作的？Event Loop 是什么？
 33. 🔴 Agent 任务在后台运行，SSE 断了任务会停吗？为什么？
 34. 🔴 Worker 崩溃了任务怎么恢复？Task Lease 是什么？
-35. 🔴 两个节点并发更新同一份 State 会发生什么？乐观锁怎么做？
+35. 🔴 两个节点并发更新同一份 State 会发生什么？乐观锁怎么做？ → [langgraph底层-三层映射与Pregel.md](./langgraph底层-三层映射与Pregel.md)（BSP 屏障/LastValue 一步一写/我用 gather 绕过/跨进程 DB 乐观锁，四层分清）
 36. 🔴 工具调用失败了，什么情况下可以重试，什么情况下不能？
 37. LangGraph 状态怎么持久化的？你用的什么 checkpointer？
 38. SSE 的 Last-Event-ID 是什么？你实现了断线续传吗？
@@ -156,7 +156,7 @@
 
 ### F. LangGraph 框架（中危区）
 
-42. 🟢 LangGraph 和 LangChain 的区别是什么？
+42. 🟢 LangGraph 和 LangChain 的区别是什么？ → [langgraph底层-三层映射与Pregel.md](./langgraph底层-三层映射与Pregel.md)（DAG 链 vs Pregel/BSP 有状态图，能讲到底层=拉开差距）
 43. 🟢 add_conditional_edges 怎么用？path 函数返回什么？ → [条件路由机制.md](./条件路由机制.md)
 44. Send 实现 Map-Reduce 并发是什么意思？你用过吗？（诚实答：没用过，0.0.55 无 Send，扇出用 asyncio.gather）
 45. 🔴 checkpoint 的 thread_id、channel_values、versions_seen 各是什么？
