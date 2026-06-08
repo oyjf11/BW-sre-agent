@@ -1,0 +1,9 @@
+{
+  "feature": "creat_class",
+  "target": { "page": "src/views/course/creat_class.vue", "route": "/creat_class" },
+  "criteria": [
+    { "id": "AC-CLASS-01", "priority": 1, "desc": "必填项为空时提交给出校验提示",
+      "given": "表单关键必填项为空", "when": "点击提交",
+      "then": { "observable": "toast", "expect_text": "请" } }
+  ]
+}

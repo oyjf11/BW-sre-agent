@@ -1,0 +1,17 @@
+{
+  "project": "hoo-desk",
+  "framework": "vue2",
+  "dev": {
+    "command": "npm run dev",
+    "ready_log": "Compiled successfully",
+    "base_url": "http://localhost:8081",
+    "timeout_ms": 180000
+  },
+  "ui": {
+    "adapter": "vue2",
+    "toast_selector": ".el-message",
+    "input_strategy": "placeholder"
+  },
+  "acceptance_dir": ".vibe/specs/acceptance",
+  "e2e_out_dir": "e2e"
+}

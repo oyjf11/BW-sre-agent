@@ -67,15 +67,17 @@
 
 ### 项目 3：OpsPilot — Harness 整体设计
 
-**一句话价值**：个人项目，复刻公司 SRE 运维诊断场景，用 LangGraph + FastAPI 实现 13 节点 Harness，核心验证了 checkpoint 持久化、Human-in-the-loop、evidence 驱动质量门禁三个生产级特性。
+**一句话价值**：个人项目，复刻公司 SRE 运维诊断场景，用 LangGraph(0.0.55) + FastAPI 实现 13 节点 Harness，**自建**了 checkpoint 持久化、审批中断续跑（Human-in-the-loop）、evidence 驱动质量门禁三个生产级特性。
+
+> ⚠️ 这三项都是**自建**而非 LangGraph 原生：0.0.55 当时还没有现代的 `interrupt()`/`Command` HITL、没有 `PostgresSaver`、没有 `Send` 扇出。详见 [dispatcher-resume机制.md](./dispatcher-resume机制.md)。被追问 checkpoint / HITL 时**必须**按那份底稿答"自建"，否则按原生机制答会被当场戳穿。
 
 **深度故事（5 分钟版）**：
 
 1. **为什么做这个**：公司 AI 运维智能体我是参与者，想通过个人项目把整个 Harness 从头实现一遍，加深理解。用 Python/LangGraph 是刻意的——补后端技能。
 2. **13 个节点的拆分逻辑**：intake → triage → retrieve_memory → planner → evidence_fanout → evidence_aggregate → diagnose → critic → remediation → risk_gate → approval_interrupt → executor → verify → rca。每个节点单一职责，失败可独立重试。
 3. **三个最重要的设计决策**：
-   - **为什么要 critic 节点**：LLM 有确认偏误，diagnose 给出根因后会找支持证据而不是反例。critic 专门攻击 diagnose 结论，是"证据高于断言 → 反证"的落地。
-   - **为什么 evidence 要持久化**：GraphRunner 在每个节点完成后写入 DB，不依赖 LangGraph 内存状态。这是"状态外置"内核。
+   - **为什么要 critic 节点**：LLM 有确认偏误，diagnose 给出根因后会找支持证据而不是反例。critic 专门攻击 diagnose 结论，是"证据高于断言 → 反证"的落地。critic 用 LangGraph **环形图（回边）** 把流程退回 evidence_fanout/planner 自我修正，回边有界（loop_count≤2）防死循环——详见 [条件路由机制.md](./条件路由机制.md)。
+   - **为什么 evidence 要持久化**：GraphRunner 在每个节点完成后手动写入 DB（自建 checkpoint，非 LangGraph 原生 checkpointer），不依赖框架内存状态。这是"状态外置"内核。
    - **为什么拆 13 个节点而不是一个大 Agent**：分解胜于强提示——0.9^1 的可靠性远低于 0.98^13 每步可验证的可靠性。
 4. **诚实说局限**：Python 是边学边用，对部分实现不如前端熟悉；没有真实生产流量，是个人 PoC 级别。
 
@@ -83,8 +85,8 @@
 
 | 追问 | 答法 |
 |------|------|
-| LangGraph checkpoint 机制怎么工作的？ | thread_id 是主键，CheckpointTuple 存 channel_values（全量状态快照）、channel_versions、pending_writes；实现上用 InMemorySaver，生产换 RedisSaver |
-| Human-in-the-loop 怎么实现？interrupt 后怎么恢复？ | interrupt() 依赖 checkpointer，暂停后把 payload 通过 stream API 暴露；恢复用 Command(resume=<人工输入>)，从 checkpoint 继续 |
+| LangGraph checkpoint 机制怎么工作的？ | **分两层答**。通用：thread_id 主键，CheckpointTuple 存 channel_values/channel_versions/versions_seen/pending_writes，原生 saver 是 Memory/Sqlite。**但我项目没用原生**（0.0.55，compile 时 checkpointer=None）：自己在 astream 循环逐节点把 state_json 落到自建 IncidentCheckpoint 表，好处是能跟业务表 join、前端直接查。详见 [dispatcher-resume机制.md](./dispatcher-resume机制.md) |
+| Human-in-the-loop 怎么实现？interrupt 后怎么恢复？ | **不是 interrupt()/Command（0.0.55 没这套 API）**。approval_interrupt 节点→END 图结束→人工审批后 approval_runtime 从自建 checkpoint 读回 state、设 _resume_from_node→重新 astream→node_dispatcher（透传节点+条件边）按审批结果路由到 executor/risk_gate/evidence_fanout。白名单防乱跳 + executor 幂等防重复执行 |
 | evidence_fanout 并发怎么实现的？ | asyncio.gather() 并发调用多个工具适配器，每个适配器有独立超时，单个失败不阻塞整体 |
 | Pydantic 对象从 checkpoint 反序列化后变成 dict，怎么处理？ | `ticket.service if hasattr(ticket, 'service') else ticket.get('service', 'unknown')`，兼容两种形式 |
 | risk_gate 的判断逻辑？ | 基于 remediation 输出的风险等级和影响范围，规则硬编码：写操作/生产环境/数据删除必须走 approval |
@@ -155,8 +157,8 @@
 ### F. LangGraph 框架（中危区）
 
 42. 🟢 LangGraph 和 LangChain 的区别是什么？
-43. 🟢 add_conditional_edges 怎么用？path 函数返回什么？
-44. Send 实现 Map-Reduce 并发是什么意思？你用过吗？
+43. 🟢 add_conditional_edges 怎么用？path 函数返回什么？ → [条件路由机制.md](./条件路由机制.md)
+44. Send 实现 Map-Reduce 并发是什么意思？你用过吗？（诚实答：没用过，0.0.55 无 Send，扇出用 asyncio.gather）
 45. 🔴 checkpoint 的 thread_id、channel_values、versions_seen 各是什么？
 46. 图执行到一半要等人工审批，代码层面怎么实现？
 47. 流式输出 token-level 和 node-level 有什么区别？
@@ -218,8 +220,10 @@
 ### 链路五：工具调用幂等
 > 幂等键 = sha256(run_id + tool_name + input_hash)。重试时相同参数命中相同键，服务端返回缓存结果而不是重新执行。已经返回部分流式 Token 的 LLM 请求不重试（幂等性破坏）。
 
-### 链路六：LangGraph checkpoint
-> thread_id 是主键，CheckpointTuple 核心字段：channel_values（全量状态快照）、channel_versions（各 channel 版本向量）、versions_seen（节点已见版本）、pending_writes（未提交写操作）。生产用 RedisSaver 替代 InMemorySaver。
+### 链路六：LangGraph checkpoint（通用知识，非本项目实现）
+> thread_id 是主键，CheckpointTuple 核心字段：channel_values（全量状态快照）、channel_versions（各 channel 版本向量）、versions_seen（节点已见版本）、pending_writes（未提交写操作）。原生 saver 有 MemorySaver/SqliteSaver，新版加了 Postgres。
+>
+> ⚠️ **这是通用机制；被问"你项目里"必须切换到自建版答法**：OpsPilot 用 0.0.55，compile 时 checkpointer=None，没用原生 saver，自己逐节点落 IncidentCheckpoint 表。详见 [dispatcher-resume机制.md](./dispatcher-resume机制.md)。
 
 ### 链路七：1000 并发 Agent 架构
 > API 和 Worker 解耦：POST /runs 写 tasks 表（PENDING）立即返回 run_id；Worker 池用 FOR UPDATE SKIP LOCKED 抢任务；每个 Worker 用 asyncio.Semaphore(20) 限制并发 LLM 数量；checkpointer 换 RedisSaver 支持多实例共享；SSE 推送换 Redis Pub/Sub 跨实例。

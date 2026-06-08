@@ -1,0 +1,49 @@
+.d2-multiple-page-control-group {
+    display: flex
+    padding: 10px 10px 0 10px;
+    justify-content: space-between
+    .d2-multiple-page-control-content {
+      overflow: auto;
+      position: relative;
+      .d2-multiple-page-control-content-inner {
+        .d2-multiple-page-control {
+          .el-tabs__header.is-top {
+            margin: 0px;
+          }
+          .el-tabs__nav {
+            border:none
+          }
+          .el-tabs__item {
+            border-radius: 8px 8px 0 0
+            background:#eaf0f8 !important
+            color:#8690ac !important
+            }
+          .el-tabs__nav {
+            overflow: hidden;
+            .is-active{
+              color:#3a3d57!important
+              background:#fff!important
+            }
+          }
+        }
+      }
+    }
+    .d2-multiple-page-control-btn {
+      position: relative;
+      bottom: -1px;
+      .el-dropdown {
+        .el-button-group {
+          border-bottom: none
+          .el-button {
+            background:#eaf0f8 !important
+            color:#8690ac !important}
+          .el-button:first-child {
+            border-bottom-left-radius: 0px;
+          }
+          .el-button:last-child {
+            border-bottom-right-radius: 0px;
+          }
+        }
+      }
+    }
+  }
