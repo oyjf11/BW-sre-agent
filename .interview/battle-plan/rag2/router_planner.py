@@ -43,7 +43,7 @@ dashscope.api_key = DASHSCOPE_API_KEY
 def router(user_input: str, retriever: SmallToBigRetriever):
     """产出:{原始需求, 改写query, 命中范式父块, 结构化意图}"""
     rewritten = rewrite_query(user_input)
-    ranked = retriever.retrieve(rewritten, top_k_parents=1)
+    ranked = retriever.retrieve(rewritten, top_k_parents=1, use_rerank=True)
     if not ranked:
         return None
     top_pid, score = ranked[0]
