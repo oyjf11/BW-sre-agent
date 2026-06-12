@@ -1,0 +1,731 @@
+# Harness Roadmap Handbook Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Build `.interview/harness-构建路线总纲.md`, an entry-point handbook that turns the existing AI Harness interview materials into a clear interview narrative plus a practical implementation blueprint.
+
+**Architecture:** Create one new Markdown document and leave existing source materials unchanged. The document uses construction order as the main line, then maps each step to personal implementation, enterprise implementation, concrete tools, deliverables, and interview talk tracks.
+
+**Tech Stack:** Markdown, existing `.interview` materials, existing design spec, shell validation with `rg`, `sed`, `wc`, and `git diff`.
+
+---
+
+## File Structure
+
+**Create:**
+
+- `.interview/harness-构建路线总纲.md`  
+  The final handbook. It is the new entry point for the existing Harness materials.
+
+**Read only:**
+
+- `docs/superpowers/specs/2026-06-13-harness-roadmap-handbook-design.md`  
+  Source design spec.
+- `.interview/battle-plan/ai_harness_interview_handbook.md`  
+  Source for interview framing, evaluation details, cases, and follow-up answers.
+- `.interview/harness-不变内核-第一性原理.md`  
+  Source for first-principles framing.
+- `.interview/harness-完整认知体系.md`  
+  Source for unified enterprise and personal mapping.
+- `.interview/harness-engineering-体系认知.md`  
+  Source for enterprise rollout, teams, governance, and platform blueprint.
+- `docs/superpowers/specs/2026-06-07-vibe-dev-toolkit-design.md`  
+  Source for the personal implementation anchor.
+
+**Do not modify:**
+
+- Existing `.interview` source documents.
+- Backend, frontend, tests, lock files, environment files.
+
+---
+
+### Task 1: Create Handbook Skeleton And Interview Main Line
+
+**Files:**
+
+- Create: `.interview/harness-构建路线总纲.md`
+
+- [ ] **Step 1: Verify source spec exists**
+
+Run:
+
+```bash
+test -f docs/superpowers/specs/2026-06-13-harness-roadmap-handbook-design.md
+```
+
+Expected: command exits with status `0`.
+
+- [ ] **Step 2: Create the handbook with sections 0-2**
+
+Use `apply_patch` to create `.interview/harness-构建路线总纲.md` with this initial content:
+
+```markdown
+# Harness 构建路线总纲：从面试主线到实施蓝图
+
+> 这份文档是 `.interview` 下 Harness 材料的入口。它不替代原文，而是把原文里的方法论、案例、企业架构和个人实践串成一条可讲、可落地的路线。
+
+## 0. 这份文档怎么用
+
+如果只剩 10 分钟准备面试，先读：
+
+1. 第 1 节：一句话总脉络。
+2. 第 2 节：10-15 分钟主讲版。
+3. 第 3 节：8 步构建路线。
+4. 第 7 节：对应岗位讲法。
+
+如果面试官追问“你具体怎么做”，读：
+
+1. 第 5 节：个人版可施工蓝图。
+2. 第 6 节：企业版平台蓝图。
+3. 第 9 节：追问索引。
+
+现有材料的分工：
+
+| 文档 | 用途 |
+|---|---|
+| `battle-plan/ai_harness_interview_handbook.md` | 面试叙事、评测细节、案例和高频问答 |
+| `harness-不变内核-第一性原理.md` | 解释为什么这些原则不随系统规模变化 |
+| `harness-完整认知体系.md` | 把个人实践和企业平台统一到一套认知框架 |
+| `harness-engineering-体系认知.md` | 企业级产研平台、组织分工和治理路径 |
+| `docs/superpowers/specs/2026-06-07-vibe-dev-toolkit-design.md` | 个人版可落地工具链的主锚点 |
+
+## 1. 一句话总脉络
+
+Harness 不是“多放几个 Agent”，而是围绕模型建立一个受控的任务执行环境：准备必要上下文，限制它能做什么，定义什么算完成，用真实证据判断结果，并把失败经验沉淀到下一次执行。
+
+构建顺序可以压成 8 步：
+
+```text
+选场景 → 定标准 → 建执行骨架 → 接能力 → 设约束 → 拿证据 → 跑评测 → 沉淀知识
+```
+
+这 8 步在个人和企业两个尺度下都成立，只是工程形态不同：
+
+| 问题 | 个人版 | 企业版 |
+|---|---|---|
+| 谁来调度 | 本地脚本、状态文件、LangGraph | 工作流引擎、状态机、事件总线 |
+| 谁来执行 | 少量 Agent、脚本、测试工具 | 能力市场、工具注册中心、内部平台服务 |
+| 谁来约束 | 目录边界、契约文件、重试和超时 | 权限系统、用量限制、审批策略、契约注册中心 |
+| 谁来判断 | 测试结果、执行轨迹、截图、失败案例 | 持续集成、审计日志、评测平台、人工确认过的标准答案 |
+| 谁来沉淀 | 本地失败案例库和项目规则 | 组织知识库、文档可信度标注、历史缺陷库 |
+
+面试时不要从“七个原则”开始讲。更稳的讲法是先讲构建顺序，再把原则嵌进去：
+
+> 我会先选一个结果容易验证、出错影响小的场景；然后定义验收条件和评测题；再用确定性的执行骨架调度 Agent、工具和人工节点；过程中通过权限、契约、超时和审批限制行为；最后只根据测试结果、执行轨迹和证据材料放行，并把失败案例沉淀到下一次执行。
+
+## 2. 10-15 分钟面试主讲版
+
+### 2.1 开场 30 秒
+
+我对 AI Harness 的理解是：模型本身会越来越接近，真正决定能不能在生产里用的是模型外面的工程系统。这个系统要解决四件事：给模型看对信息，限制它能做的事，要求它交付可验证的产物，并用评测持续发现退化。
+
+一句话概括：Harness 是一个受控任务执行环境，不是一个提示词集合。
+
+### 2.2 为什么不能只靠模型
+
+模型有几个固定问题：输出不稳定，会自信地犯错，执行过程不透明，长任务里容易丢状态，还可能在没有约束时一直尝试下去。这些问题不会因为系统规模变大就消失。
+
+所以 Harness 的设计不是为了显得复杂，而是为了把这些风险变成工程边界：
+
+| 模型或现实问题 | 工程处理 |
+|---|---|
+| 输出不稳定 | 用确定性流程控制下一步和结束条件 |
+| 会自信地犯错 | 用测试结果、执行轨迹和证据材料判断 |
+| 不知道能不能做 | 用工具白名单、权限和契约限制 |
+| 长任务会丢状态 | 把状态放在模型外部，可恢复、可审计 |
+| 结果难比较 | 把输出变成结构化产物和评测数据 |
+
+### 2.3 我会怎么构建
+
+我的构建顺序是 8 步：
+
+1. 先选结果容易验证、出错影响小的场景。
+2. 先写验收条件和评测题，再让 AI 执行。
+3. 建一个确定性的执行骨架，管理状态、重试、超时和恢复。
+4. 把能力拆成 Agent、工具、脚本和人工处理节点。
+5. 把规则做成执行前就生效的约束，不只写在提示词里。
+6. 要求每次任务留下测试结果、执行轨迹、截图或审计记录。
+7. 用离线评测、回归集和失败案例判断版本有没有变好。
+8. 把失败案例、项目规则和有效修复沉淀到下一次执行。
+
+### 2.4 我自己的锚点
+
+个人版我会用 Vibe Dev Toolkit 来讲：它用 OpenCode、TypeScript/Node、Playwright、验收条件 JSON、任务状态文件、事件日志和失败案例 YAML，复刻了一条从验收条件到真实测试执行再到失败案例沉淀的链路。
+
+成熟 Agent 项目我会用 OpsPilot 来讲：它用 LangGraph 编排 SRE 故障处理流程，用工具网关接各种只读和执行能力，用审批接口处理高风险动作，用证据条目、事件记录和离线评测判断诊断是否可靠。
+
+企业版我会讲平台化：模型调用网关、工作流引擎、工具注册中心、权限系统、评测平台、证据材料包和组织知识库。企业要解决的不是“一个 Agent 能不能跑”，而是很多团队能不能在统一规则下复用、审计、控成本和持续改进。
+
+### 2.5 收尾
+
+我判断一个 Harness 好不好，不看它堆了多少 Agent，而看它能不能回答这几个问题：任务标准是否清楚，流程是否可恢复，能力是否有边界，结果是否有证据，版本是否能评测，失败经验是否能被下一次使用。
+```
+
+- [ ] **Step 3: Verify headings for sections 0-2**
+
+Run:
+
+```bash
+rg -n "^## [0-2]\\." .interview/harness-构建路线总纲.md
+```
+
+Expected output includes:
+
+```text
+## 0. 这份文档怎么用
+## 1. 一句话总脉络
+## 2. 10-15 分钟面试主讲版
+```
+
+---
+
+### Task 2: Add The 8-Step Construction Route
+
+**Files:**
+
+- Modify: `.interview/harness-构建路线总纲.md`
+
+- [ ] **Step 1: Append section 3 with the complete 8-step route**
+
+Use `apply_patch` to append this content after section 2:
+
+```markdown
+## 3. Harness 构建的 8 步施工路线
+
+这一节是整份文档的核心。它把方法论改成施工顺序，每一步都同时回答个人版和企业版怎么做。
+
+### Step 1：选场景
+
+先选高频、出错影响小、结果容易验证、最好有历史样本的场景。不要一上来做自动发布、生产回滚、核心交易改动这类难恢复任务。
+
+| 维度 | 个人版 | 企业版 |
+|---|---|---|
+| 推荐场景 | 前端测试生成、代码审查辅助、故障诊断离线评测 | 缺陷初判、工单摘要、测试生成、代码审查、知识问答 |
+| 避免场景 | 自动改生产配置、自动删数据、自动发布 | 核心交易自动变更、无人审批的线上回滚 |
+| 产物 | `scenario.md`、范围说明、风险说明 | 试点场景清单、数据来源、业务负责人、验收指标 |
+| 验收 | 能说明为什么这个场景值得做，也能说明哪些事情暂时不做 | 试点场景至少满足高频、可验证、风险可控、有历史样本中的三项 |
+
+面试讲法：我不会先造平台，而是先找一个结果容易验证的场景。场景选错了，后面所有技术都会变成展示工程。
+
+### Step 2：定标准
+
+先定义“什么算做对”，再让 AI 执行。否则每次优化都只能靠主观感觉。
+
+| 维度 | 个人版 | 企业版 |
+|---|---|---|
+| 做法 | 手写验收条件、固定样本、期望输出 | 题库、人工确认过的标准答案、回归集、业务指标 |
+| 文件 | `.vibe/specs/acceptance/*.json`、`eval_cases/*.jsonl` | 题库仓库、评测配置、标准答案库、指标看板 |
+| 工具 | JSON/YAML、pytest、vitest、Playwright、离线评测脚本 | 评测平台、持续集成、人工标注流程、版本对比报告 |
+| 验收 | 每个任务都有可检查的完成标准 | 能比较不同模型、提示词、工具版本的效果变化 |
+
+面试讲法：在 AI 项目里，评测不是最后验收，而是新时代的需求文档。先把“什么算对”写出来，后面才知道系统有没有进步。
+
+### Step 3：建执行骨架
+
+用确定性流程包住非确定性模型。流程的下一步、是否结束、失败怎么处理，都应由代码或人工节点决定。
+
+| 维度 | 个人版 | 企业版 |
+|---|---|---|
+| 做法 | 本地状态文件、事件日志、调度脚本 | 工作流引擎、状态机、状态检查点、事件总线 |
+| 文件或组件 | `task.json`、`events.jsonl`、`orchestrator.ts`、LangGraph | 流程编排平台、状态存储、任务队列、恢复机制 |
+| 验收 | 中断后能从上次状态恢复；失败能看到卡在哪一步 | 任务可暂停、恢复、重试、转人工，且过程可审计 |
+
+面试讲法：Agent 可以提出方案，但执行流程不能靠 Agent 自己说“我完成了”。流程终态要由执行骨架根据真实产物判断。
+
+### Step 4：接能力
+
+把能力拆成 Agent、工具、脚本和人工处理节点，而不是做一个全能 Agent。
+
+| 维度 | 个人版 | 企业版 |
+|---|---|---|
+| Agent | `test-generator`、`test-analyst`、诊断节点、反证节点 | 需求分析、设计、开发、测试、审查、故障分析 |
+| 工具 | 文件读取、测试执行、日志查询、代码搜索 | 工具注册中心、内部接口、监控平台、工单系统、代码平台 |
+| 脚本 | 覆盖检查、契约校验、失败案例检索 | 持续集成任务、质量扫描、兼容性检查 |
+| 人工节点 | 高风险动作确认、最终验收 | 审批、架构评审、安全评审、业务验收 |
+
+面试讲法：我更倾向于把能力做成可组合的小单元。这样某一步失败了能定位，某个能力变强了也能单独替换。
+
+### Step 5：设约束
+
+约束要在执行前生效，不能只写在提示词里。
+
+| 维度 | 个人版 | 企业版 |
+|---|---|---|
+| 行为边界 | 只改指定目录、禁止改断言绕过失败、限制重试次数 | 权限系统、工具白名单、租户隔离、高风险审批 |
+| 成本控制 | 单次任务超时、最大轮次、失败熔断 | 用量限制、模型路由、团队成本归因、预算告警 |
+| 输出约束 | JSON/YAML 契约、结构化报告 | 契约注册中心、接口规范、版本化产物 |
+| 验收 | 违反约束时任务失败，而不是事后提醒 | 约束在工具调用和流程放行时强制执行 |
+
+面试讲法：规则写在文档里不够，必须变成运行时检查。真正的约束应该让系统过不去，而不是让人事后发现。
+
+### Step 6：拿证据
+
+不采信 AI 的口头完成声明，只看真实产物。
+
+| 维度 | 个人版 | 企业版 |
+|---|---|---|
+| 证据 | Playwright 测试结果、执行轨迹、截图、测试输出、代码差异 | 持续集成结果、审计日志、灰度指标、证据材料包 |
+| 存储 | `.vibe/reports/<id>/result.json`、`evidence.md` | 证据服务、审计系统、质量报告、发布记录 |
+| 验收 | 能复盘一次任务为什么通过或失败 | 任一放行结论都能追溯到具体证据 |
+
+面试讲法：AI 说“测过了”没有意义。我要看测试输出、执行轨迹和截图；企业里还要看审计记录、灰度指标和发布证据。
+
+### Step 7：跑评测
+
+把一次演示变成可回归、可比较、可防止指标虚高的评测体系。
+
+| 维度 | 个人版 | 企业版 |
+|---|---|---|
+| 小规模验证 | 固定样本、失败案例回放、验收条件与断言双向检查 | 快速评测集、冒烟评测、核心指标报警 |
+| 正式回归 | 离线评测、重复运行、版本对比 | 全量回归集、隐藏题集、人工标准答案校准 |
+| 防绕过 | 空断言检查、未执行检查、覆盖缺口检查 | 变异测试、历史缺陷回放、评测准入 |
+| 验收 | 能说明这次改动比上次好在哪里，也能指出退化样本 | 能作为能力上线、模型切换、提示词变更的准入依据 |
+
+面试讲法：我不会用一次演示证明系统有效。我会用同一套题比较版本，并把失败样本沉淀下来，防止系统只是在某几个样本上表现好。
+
+### Step 8：沉淀知识
+
+让每次失败和修复影响下一次执行。
+
+| 维度 | 个人版 | 企业版 |
+|---|---|---|
+| 内容 | 失败案例、项目规则、有效修复、容易漏测的路径 | 历史缺陷、项目规则、领域知识、文档可信度、发布经验 |
+| 文件或系统 | `.vibe/badcases/*.yaml`、本地检索脚本 | 组织知识库、检索服务、文档可信度标注、知识准入流程 |
+| 验收 | 下次执行前能检索相似失败案例并注入上下文 | 经验入库前经过去重、验证、冲突检查和有效期管理 |
+
+面试讲法：运行记录不等于知识。真正值得沉淀的是经过验证、未来还能复用的事实和规则。
+```
+
+- [ ] **Step 2: Verify all eight steps exist**
+
+Run:
+
+```bash
+rg -n "^### Step [1-8]" .interview/harness-构建路线总纲.md
+```
+
+Expected: exactly 8 matching lines.
+
+---
+
+### Task 3: Add Personal And Enterprise Implementation Blueprints
+
+**Files:**
+
+- Modify: `.interview/harness-构建路线总纲.md`
+
+- [ ] **Step 1: Append sections 4-6**
+
+Use `apply_patch` to append this content after section 3:
+
+```markdown
+## 4. 双层镜像：个人怎么搭，企业怎么搭
+
+同一套原则在个人和企业两个尺度下都成立，但实现方式不同。
+
+| 层次 | 个人版 | 企业版 |
+|---|---|---|
+| 上下文 | 本地代码、项目说明、验收条件、失败案例 | 项目知识库、历史需求、缺陷库、监控数据、文档可信度标注 |
+| 能力 | 少量 Agent、脚本、测试工具 | 能力市场、工具注册中心、内部平台服务 |
+| 契约 | JSON/YAML、输入输出字段、目录边界 | 契约注册中心、组织规范、接口协议、质量标准 |
+| 编排 | 状态文件、事件日志、本地调度脚本、LangGraph | 工作流引擎、状态机、事件总线、状态检查点 |
+| 证据 | 测试结果、执行轨迹、截图、代码差异 | 持续集成、审计日志、灰度指标、证据材料包 |
+| 评测 | 固定样本、失败案例回放、本地评测脚本 | 题库、回归集、隐藏题集、评测平台 |
+| 知识 | 本地失败案例 YAML、项目规则 Markdown | 组织知识库、文档可信度标注、知识准入流程 |
+
+个人版关注：能不能跑通、能不能证明、能不能复盘。
+
+企业版关注：能不能复用、能不能治理、能不能控成本、能不能规模化推广。
+
+## 5. 个人版可施工蓝图
+
+个人版用两个锚点讲：
+
+1. Vibe Dev Toolkit：从零搭一条研发工具链。
+2. OpsPilot：成熟 Agent 工作流里的 Harness 机制。
+
+### 5.1 Vibe Dev Toolkit：从验收条件到真实测试
+
+目标：在一个真实前端项目里，用最少组件搭出一条能执行、能检查、能复盘的链路。
+
+目录结构：
+
+```text
+.vibe/
+  specs/
+    acceptance/
+      login.ac.json
+  state/
+    task.json
+    events.jsonl
+  reports/
+    <execution_id>/
+      result.json
+      evidence.md
+  badcases/
+    <case_id>.yaml
+
+.opencode/
+  command/
+    vibe-test.md
+    learning-compound.md
+    learning-researcher.md
+  agent/
+    test-generator.md
+    test-analyst.md
+  skill/
+
+tools/vibe/
+  src/
+    orchestrator.ts
+    contracts.ts
+    coverage-checker.ts
+    badcase.ts
+    adapters/
+      vue2.ts
+      vue3.ts
+      react.ts
+  tests/
+    coverage-checker.test.ts
+    contracts.test.ts
+    badcase.test.ts
+
+e2e/
+  login/
+    login.generated.spec.ts
+```
+
+关键脚本：
+
+| 脚本 | 作用 |
+|---|---|
+| `orchestrator.ts` | 读取任务状态，选择任务，记录事件，处理重试和超时 |
+| `contracts.ts` | 定义输入输出契约，防止 Agent 返回无法消费的自然语言 |
+| `coverage-checker.ts` | 检查验收条件是否有断言、断言是否真执行 |
+| `badcase.ts` | 写入和检索失败案例 |
+| `test-generator.md` | 根据验收条件生成 Playwright 用例 |
+| `test-analyst.md` | 根据测试结果分析失败原因 |
+
+命令流：
+
+```bash
+$EDITOR .vibe/specs/acceptance/login.ac.json
+npm run dev
+/opencode command vibe-test login
+npx playwright test e2e/login/login.generated.spec.ts --reporter=json
+node tools/vibe/dist/coverage-checker.js --ac .vibe/specs/acceptance/login.ac.json --result .vibe/reports/<execution_id>/result.json
+/opencode command learning-compound .vibe/reports/<execution_id>
+/opencode command learning-researcher login
+```
+
+验收标准：
+
+1. 能从验收条件生成 Playwright 用例。
+2. 用例能真实执行。
+3. 每条验收条件都能对应到至少一个断言。
+4. 空断言、未执行断言、漏测路径会被脚本识别。
+5. 失败案例能沉淀为 YAML。
+6. 下次生成前能检索相似失败案例并注入上下文。
+7. 事件日志能还原一次执行的关键过程。
+
+### 5.2 OpsPilot：成熟 Agent 工作流里的 Harness 机制
+
+OpsPilot 可以作为成熟工作流锚点，说明 Harness 不只适用于测试生成，也适用于 SRE 故障处理。
+
+| Harness 机制 | OpsPilot 对应实现 |
+|---|---|
+| 执行骨架 | LangGraph 节点和条件路由 |
+| 状态恢复 | 状态检查点和运行状态 |
+| 工具能力 | 工具网关和适配器 |
+| 人工确认 | 审批中断节点和审批接口 |
+| 证据材料 | 证据条目、执行轨迹和事件记录 |
+| 离线评测 | Phase 8 离线评测框架 |
+| 失败复盘 | 根因分析、执行轨迹和测试报告 |
+
+面试讲法：Vibe Dev Toolkit 说明我能从零搭一个可验证工具链，OpsPilot 说明同一套思想能落到真实 Agent 工作流里。
+
+## 6. 企业版平台蓝图
+
+企业版不是“把个人工具做大”，而是让很多团队在统一规则下复用 AI 能力，同时保留项目差异。
+
+### 6.1 平台组件
+
+| 层 | 组件 | 作用 |
+|---|---|---|
+| 任务接入层 | 需求平台、工单系统、代码仓库、持续集成、监控平台 | 提供任务来源和真实执行结果 |
+| 模型调用层 | 模型调用网关、模型路由、用量计量、缓存 | 控制成本、版本和审计 |
+| 流程编排层 | 工作流引擎、状态机、状态检查点、事件总线 | 管流程、重试、中断恢复和人工确认 |
+| 能力层 | Agent、工具、脚本、人工处理节点注册中心 | 把需求分析、设计、开发、测试、审查做成可复用能力 |
+| 约束层 | 契约注册中心、权限系统、工具白名单、用量限制、审批策略 | 把规范变成运行时规则 |
+| 证据层 | 测试结果、执行轨迹、截图、审计日志、证据材料包 | 给每次放行提供依据 |
+| 评测层 | 评测执行器、题库、人工标准答案、回归集、隐藏题集 | 比较版本、发现退化、防止指标虚高 |
+| 知识层 | 失败案例库、项目规则库、文档可信度标注、检索服务 | 把经验变成下一次执行的上下文 |
+| 治理层 | 指标看板、成本看板、风险审计、能力准入流程 | 让平台可控、可推广 |
+
+### 6.2 五阶段落地路径
+
+| 阶段 | 做什么 | 解决的问题 |
+|---|---|---|
+| 1. 能力工具化 | 高频场景先封装成命令、脚本或 Agent | 能不能用 |
+| 2. 能力标准化 | 定义输入、输出、权限、失败状态和证据要求 | 能不能稳定复用 |
+| 3. 流程编排化 | 把能力放进工作流，加状态、依赖、重试和人工确认 | 能不能形成闭环 |
+| 4. 评测与治理 | 建题库、回归集、准入规则、审计和成本监控 | 能不能放心推广 |
+| 5. 知识沉淀 | 失败案例、项目规则、历史修复和测试结果进入知识库 | 能不能越用越好 |
+
+### 6.3 企业版验收标准
+
+1. 任一能力都有明确输入输出和权限边界。
+2. 每次 AI 参与的任务，都能看到完整执行轨迹，并能拿到用于判断结果的证据材料。
+3. 高风险动作必须人工确认。
+4. 模型、提示词、工具版本都可追溯。
+5. 成本可按团队、项目、任务归因。
+6. 能力上线前必须跑回归评测。
+7. 失败案例能进入知识库，并影响后续执行。
+8. 平台层统一治理，项目层可以配置自己的流程。
+
+面试讲法：个人版解决“我能不能把一条链路跑通”，企业版解决“很多团队能不能在统一规则下复用，并且能审计、控成本、持续改进”。
+```
+
+- [ ] **Step 2: Verify sections 4-6 exist**
+
+Run:
+
+```bash
+rg -n "^## [4-6]\\." .interview/harness-构建路线总纲.md
+```
+
+Expected output includes sections 4, 5, and 6.
+
+---
+
+### Task 4: Add Job Talk Tracks, Source Mapping, And Follow-Up Index
+
+**Files:**
+
+- Modify: `.interview/harness-构建路线总纲.md`
+
+- [ ] **Step 1: Append sections 7-9**
+
+Use `apply_patch` to append this content after section 6:
+
+```markdown
+## 7. 两类岗位讲法
+
+### 7.1 Agent / AI 工程师版
+
+主线：我能把不稳定的模型能力，放进一个可编排、可约束、可验证、可复盘的工程系统里。
+
+重点讲：
+
+1. 执行骨架：状态机、条件路由、重试、超时、中断恢复。
+2. 工具能力：工具注册、权限边界、只读工具和执行工具分离。
+3. 契约：输入输出结构化，避免 Agent 之间靠自然语言交接。
+4. 证据：测试结果、执行轨迹、截图、事件记录。
+5. 评测：固定样本、回归集、失败案例、版本对比。
+
+可用项目锚点：
+
+| 项目 | 讲什么 |
+|---|---|
+| Vibe Dev Toolkit | 从验收条件到 Playwright 真执行，再到失败案例沉淀 |
+| OpsPilot | LangGraph 编排、工具网关、审批接口、证据持久化、离线评测 |
+
+避免说法：
+
+1. 不说“我做了完整企业平台”。
+2. 不把设计推演数字说成线上真实收益。
+3. 不把多 Agent 说成默认方向。默认是一个 Agent 加清晰工具和流程，只有任务可拆、验证便宜时才扩展。
+
+### 7.2 AI 产品 / 解决方案版
+
+主线：AI 项目不是先买模型，而是先找可验证场景，用评测证明价值，再逐步平台化。
+
+重点讲：
+
+1. 选场景：高频、风险可控、结果容易验证、有历史样本。
+2. 证明价值：评测曲线、分层数据、业务指标。
+3. 组织落地：平台团队、能力团队、项目团队、治理团队。
+4. 推广路径：试点、标准化、编排化、评测治理、知识沉淀。
+5. 风险控制：人工确认、权限边界、审计、成本归因。
+
+可用项目锚点：
+
+| 项目 | 讲什么 |
+|---|---|
+| Vibe Dev Toolkit | 一个小工具如何验证“可执行、可验证、可沉淀”的路线 |
+| OpsPilot | SRE 场景里如何把故障处理流程做成可追踪工作流 |
+
+避免说法：
+
+1. 不把“智能体”包装成万能员工。
+2. 不用一次演示证明价值，要讲评测曲线和业务指标。
+3. 不把企业知识库说成一开始就要建大而全的平台，要让场景牵引知识沉淀。
+
+## 8. 与现有文档的映射
+
+| 总纲内容 | 来源文档 |
+|---|---|
+| 10-15 分钟主讲、案例、评测细节 | `battle-plan/ai_harness_interview_handbook.md` |
+| 受控任务执行环境、七个不变内核 | `harness-不变内核-第一性原理.md` |
+| 个人和企业双层映射 | `harness-完整认知体系.md` |
+| 企业平台、组织分工、五阶段路径 | `harness-engineering-体系认知.md` |
+| 个人版脚本、目录、Playwright、失败案例闭环 | `docs/superpowers/specs/2026-06-07-vibe-dev-toolkit-design.md` |
+
+后续重构顺序建议：
+
+1. 先保持原文不动，把本总纲作为入口。
+2. 如果总纲使用顺手，再把原三份文档里的重复内容收敛。
+3. 面试前只背总纲主线，追问时回原文查细节。
+
+## 9. 面试追问索引
+
+### 问：Harness 到底怎么构建？
+
+答：按 8 步来：选场景、定标准、建执行骨架、接能力、设约束、拿证据、跑评测、沉淀知识。不是先造平台，也不是先堆 Agent。
+
+### 问：个人怎么搭？
+
+答：用本地脚本和文件就能搭最小版本。比如 Vibe Dev Toolkit：验收条件 JSON、任务状态文件、事件日志、Playwright 测试结果、覆盖检查脚本、失败案例 YAML，就能形成一条可执行、可检查、可复盘的链路。
+
+### 问：企业怎么搭？
+
+答：企业要把个人版的文件和脚本换成平台组件：模型调用网关、工作流引擎、工具注册中心、权限系统、评测平台、证据服务和组织知识库。重点不是更复杂，而是能复用、能审计、能控成本。
+
+### 问：多 Agent 是不是趋势？
+
+答：不按趋势选，按任务形态选。默认一个 Agent 加清晰工具和流程。如果任务能拆成互不影响的只读子任务，或者多个答案能被便宜地自动评判，才适合并行多 Agent。
+
+### 问：怎么证明有效？
+
+答：不用一次演示证明。用固定评测集、版本对比、失败样本分析和业务指标证明。个人版看测试是否真执行、断言是否覆盖验收条件；企业版看回归评测、隐藏题集、人工标准答案校准和业务指标。
+
+### 问：用了哪些具体工具？
+
+答：个人版可以讲 OpenCode、TypeScript/Node、Playwright、验收条件 JSON、任务状态文件、事件日志、失败案例 YAML。OpsPilot 可以讲 LangGraph、工具网关、审批接口、证据持久化和离线评测。企业版可以讲模型调用网关、工作流引擎、工具注册中心、权限系统、评测平台和组织知识库。
+
+### 问：如何避免 AI 绕过验收？
+
+答：关键检查不用模型判断。比如测试生成里，必须真实执行 Playwright；每条验收条件都要有断言；断言还要确认被执行。空断言、未执行断言、漏测路径都由脚本识别，而不是靠 Agent 自我报告。
+
+### 问：如何处理企业文档过期？
+
+答：文档不能被默认当成事实。企业版要给文档加可信度标注，例如更新时间、关联代码是否变化、引用函数是否还存在、来源等级。模型读文档时同时看到这些标注，必要时回到代码和实际数据核对。
+```
+
+- [ ] **Step 2: Verify sections 7-9 exist**
+
+Run:
+
+```bash
+rg -n "^## [7-9]\\." .interview/harness-构建路线总纲.md
+```
+
+Expected output includes sections 7, 8, and 9.
+
+---
+
+### Task 5: Validate Language, Scope, And Commit
+
+**Files:**
+
+- Modify: `.interview/harness-构建路线总纲.md`
+- Modify: `docs/superpowers/plans/2026-06-13-harness-roadmap-handbook.md` only if this plan has tracking marks updated during execution.
+
+- [ ] **Step 1: Check for forbidden placeholders**
+
+Run:
+
+```bash
+for pattern in "TB""D" "TO""DO" "待""定" "待""补充" "稍""后" "以后""补"; do
+  if rg -n "$pattern" .interview/harness-构建路线总纲.md; then
+    exit 1
+  fi
+done
+```
+
+Expected: no matches.
+
+- [ ] **Step 2: Check for avoided wording in final handbook**
+
+Run:
+
+```bash
+rg -n "低爆炸半径|高爆炸半径|闸门|喂信息|护城河|复利飞轮|AI 作弊|Bad Case|evidence pack|eval runner|schema registry|tool registry|LLM Gateway|checkpoint|Human Task|JSON reporter" .interview/harness-构建路线总纲.md
+```
+
+Expected: no matches.
+
+- [ ] **Step 3: Check section completeness**
+
+Run:
+
+```bash
+rg -n "^## [0-9]\\." .interview/harness-构建路线总纲.md
+```
+
+Expected output includes:
+
+```text
+## 0. 这份文档怎么用
+## 1. 一句话总脉络
+## 2. 10-15 分钟面试主讲版
+## 3. Harness 构建的 8 步施工路线
+## 4. 双层镜像：个人怎么搭，企业怎么搭
+## 5. 个人版可施工蓝图
+## 6. 企业版平台蓝图
+## 7. 两类岗位讲法
+## 8. 与现有文档的映射
+## 9. 面试追问索引
+```
+
+- [ ] **Step 4: Check line count**
+
+Run:
+
+```bash
+wc -l .interview/harness-构建路线总纲.md
+```
+
+Expected: document is substantial enough for a handbook and remains readable. A practical range is 250-450 lines.
+
+- [ ] **Step 5: Review diff only for intended files**
+
+Run:
+
+```bash
+git diff -- .interview/harness-构建路线总纲.md docs/superpowers/plans/2026-06-13-harness-roadmap-handbook.md
+git status --short
+```
+
+Expected:
+
+- New handbook exists.
+- Plan file exists.
+- Existing unrelated working tree changes remain untouched.
+
+- [ ] **Step 6: Commit only the plan and handbook**
+
+Run:
+
+```bash
+git add docs/superpowers/plans/2026-06-13-harness-roadmap-handbook.md .interview/harness-构建路线总纲.md
+git commit -m "docs: add harness roadmap handbook"
+```
+
+Expected: commit succeeds and includes only the plan and handbook.
+
+---
+
+## Self-Review
+
+**Spec coverage:**  
+This plan covers the requested new entry document, the 8-step construction route, personal and enterprise implementation blueprints, two job talk tracks, source mapping, follow-up index, language style constraints, validation, and commit.
+
+**Placeholder scan:**  
+The plan contains no unfinished placeholder sections. Validation uses split shell strings for English placeholder markers so the plan does not trigger its own checks.
+
+**Scope check:**  
+This is a single documentation implementation task. It does not create scripts, modify business code, alter existing source documents, or change tests.
+
+**Ambiguity check:**  
+The final output path is fixed as `.interview/harness-构建路线总纲.md`. The plan explicitly avoids rewriting existing materials and separates real project anchors from enterprise platform blueprint content.
