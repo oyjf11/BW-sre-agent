@@ -15,6 +15,8 @@ import time
 import random
 from collections import defaultdict, deque
 
+from data import DEMO_DAG
+
 
 # ============================================================
 # 状态枚举
@@ -144,35 +146,8 @@ class MockExecutor:
         print(f"   完成度: {counts[SUCCESS]}/{total}")
 
 
-# ============================================================
-# 演示:用一份手写 DAG(平时这份由 Planner 产出)
-# ============================================================
-def demo_dag():
-    """模拟 Planner 输出的 DAG(CRM 跟进工具)"""
-    return {
-        "tasks": [
-            {"id": "T1", "type": "schema", "action": "创建数据表",
-             "detail": "customers/follow_ups/team_members", "depends_on": [],
-             "source": "pattern"},
-            {"id": "T2", "type": "auth", "action": "配置认证",
-             "detail": "Supabase Auth 邮箱登录", "depends_on": ["T1"],
-             "source": "pattern"},
-            {"id": "T3", "type": "rls", "action": "权限隔离",
-             "detail": "RLS 按 team_id 隔离", "depends_on": ["T1", "T2"],
-             "source": "pattern"},
-            {"id": "T4", "type": "page", "action": "生成页面",
-             "detail": "客户列表", "depends_on": ["T1"], "source": "pattern"},
-            {"id": "T5", "type": "page", "action": "生成页面",
-             "detail": "跟进进度看板", "depends_on": ["T1"], "source": "requirement"},
-            {"id": "T6", "type": "logic", "action": "状态流转逻辑",
-             "detail": "待跟进→跟进中→已成交", "depends_on": ["T3", "T5"],
-             "source": "pattern"},
-        ]
-    }
-
-
 def main():
-    dag = demo_dag()
+    dag = DEMO_DAG
     layers = parallel_layers(dag["tasks"])
 
     print("Planner 输出的任务图:")

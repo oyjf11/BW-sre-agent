@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>登录 - JitSlide AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/3/3.1.1/iconify.min.js"></script>
+  <style>
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+    .animate-float {
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes gradient {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    .animate-gradient {
+      background-size: 200% 200%;
+      animation: gradient 15s ease infinite;
+    }
+    /* Modal Styles */
+    .modal-overlay {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal-content {
+      transform: scale(0.95) translateY(10px);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .modal-overlay.active .modal-content {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+    .modal-body {
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 #f1f5f9;
+    }
+    .modal-body::-webkit-scrollbar {
+      width: 6px;
+    }
+    .modal-body::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 3px;
+    }
+    .modal-body::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    .modal-body::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-900 min-h-screen flex items-center justify-center p-4">
+  <!-- Background Decoration -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-20 -left-20 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float"></div>
+    <div class="absolute bottom-20 -right-20 w-96 h-96 bg-sky-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float" style="animation-delay: 2s;"></div>
+    <div class="absolute top-1/2 left-1/2 w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-float" style="animation-delay: 4s;"></div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="w-full max-w-6xl mx-auto relative z-10">
+    <div class="grid md:grid-cols-2 gap-0 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+      
+      <!-- Left Side: Branding & Illustration -->
+      <div class="hidden md:flex flex-col justify-between p-12 bg-gradient-to-br from-blue-600 via-blue-700 to-sky-700 animate-gradient relative overflow-hidden">
+        <!-- Brand Logo -->
+        <div class="relative z-10">
+          <div class="flex items-center space-x-3 mb-8">
+            <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
+              <span class="iconify text-blue-600 text-3xl" data-icon="solar:magic-stick-3-bold-duotone"></span>
+            </div>
+            <span class="text-2xl font-bold tracking-tight text-white">JitSlide AI</span>
+          </div>
+          <h2 class="text-4xl font-extrabold text-white leading-tight mb-4">
+            用AI重新定义<br/>PPT创作体验
+          </h2>
+          <p class="text-blue-100 text-lg leading-relaxed">
+            只需一句话,即可生成专业级演示文稿<br/>让创意表达更简单、更高效
+          </p>
+        </div>
+
+        <!-- Features List -->
+        <div class="space-y-4 relative z-10">
+          <div class="flex items-center space-x-3 text-white">
+            <div class="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center">
+              <span class="iconify text-xl" data-icon="solar:star-fall-minimalistic-bold-duotone"></span>
+            </div>
+            <span class="font-medium">AI智能生成内容大纲</span>
+          </div>
+          <div class="flex items-center space-x-3 text-white">
+            <div class="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center">
+              <span class="iconify text-xl" data-icon="solar:gallery-wide-bold-duotone"></span>
+            </div>
+            <span class="font-medium">海量专业设计模板</span>
+          </div>
+          <div class="flex items-center space-x-3 text-white">
+            <div class="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-lg flex items-center justify-center">
+              <span class="iconify text-xl" data-icon="solar:rocket-2-bold-duotone"></span>
+            </div>
+            <span class="font-medium">一键导出PPTX文件</span>
+          </div>
+        </div>
+
+        <!-- Decorative Elements -->
+        <div class="absolute top-20 right-10 w-32 h-32 border-2 border-white/20 rounded-3xl rotate-12"></div>
+        <div class="absolute bottom-32 right-20 w-20 h-20 border-2 border-white/20 rounded-2xl -rotate-12"></div>
+      </div>
+
+      <!-- Right Side: Login/Register Form -->
+      <div class="flex flex-col justify-center p-12">
+        <!-- Mobile Brand (show on small screens) -->
+        <div class="md:hidden flex items-center space-x-3 mb-8">
+          <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+            <span class="iconify text-white text-2xl" data-icon="solar:magic-stick-3-bold-duotone"></span>
+          </div>
+          <span class="text-xl font-bold tracking-tight text-slate-800">JitSlide AI</span>
+        </div>
+
+        <!-- Tab Switcher -->
+        <div class="flex bg-slate-100 rounded-xl p-1 mb-8">
+          <button id="loginTab" class="flex-1 py-3 px-6 rounded-lg font-bold text-sm transition-all bg-white text-slate-900 shadow-sm">
+            登录
+          </button>
+          <button id="registerTab" class="flex-1 py-3 px-6 rounded-lg font-bold text-sm transition-all text-slate-600 hover:text-slate-900">
+            注册
+          </button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginForm" class="space-y-6">
+          <div>
+            <h3 class="text-2xl font-bold text-slate-900 mb-2">欢迎回来</h3>
+            <p class="text-slate-500 text-sm">登录您的账户继续创作精彩演示</p>
+          </div>
+
+          <!-- Social Login Buttons -->
+          <div class="grid grid-cols-2 gap-3">
+            <button id="emailLoginBtn" class="py-3 px-4 border-2 border-slate-200 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center space-x-2">
+              <span class="iconify text-xl" data-icon="solar:letter-bold-duotone"></span>
+              <span>邮箱</span>
+            </button>
+            <button class="py-3 px-4 border-2 border-slate-200 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center space-x-2">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              <span>GitHub</span>
+            </button>
+          </div>
+
+          <div class="relative">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-slate-200"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span class="px-4 bg-white text-slate-500 font-medium">或使用激活码</span>
+            </div>
+          </div>
+
+          <!-- Email Login Form (Hidden by default) -->
+          <div id="emailLoginForm" class="space-y-4 hidden">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">邮箱地址</label>
+              <input type="email" placeholder="请输入您的邮箱" class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">密码</label>
+              <input type="password" placeholder="请输入密码" class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium" />
+            </div>
+            <div class="flex items-center justify-between">
+              <label class="flex items-center space-x-2">
+                <input type="checkbox" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+                <span class="text-sm text-slate-600">记住我</span>
+              </label>
+              <a href="#" class="text-sm text-blue-600 font-semibold hover:text-blue-700">忘记密码？</a>
+            </div>
+            <button class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center justify-center space-x-2 active:scale-[0.98]">
+              <span class="iconify" data-icon="solar:login-3-bold-duotone"></span>
+              <span>登录</span>
+            </button>
+            <button id="backToOptions" class="w-full py-2 text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">
+              ← 返回选择其他方式
+            </button>
+          </div>
+
+          <!-- Activation Code Input -->
+          <div id="activationCodeLogin" class="space-y-4">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">激活码</label>
+              <input type="text" placeholder="请输入您的激活码" class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium" />
+            </div>
+            <button class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center justify-center space-x-2 active:scale-[0.98]">
+              <span class="iconify" data-icon="solar:login-3-bold-duotone"></span>
+              <span>立即登录</span>
+            </button>
+          </div>
+
+          <p class="text-center text-sm text-slate-500">
+            还没有账户？<button id="toRegister" class="text-blue-600 font-bold hover:text-blue-700">立即注册</button>
+          </p>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerForm" class="space-y-6 hidden">
+          <div>
+            <h3 class="text-2xl font-bold text-slate-900 mb-2">开启AI创作之旅</h3>
+            <p class="text-slate-500 text-sm">创建账户,体验智能PPT生成</p>
+          </div>
+
+          <!-- Social Register Buttons -->
+          <div class="grid grid-cols-2 gap-3">
+            <button id="emailRegisterBtn" class="py-3 px-4 border-2 border-slate-200 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center space-x-2">
+              <span class="iconify text-xl" data-icon="solar:letter-bold-duotone"></span>
+              <span>邮箱</span>
+            </button>
+            <button class="py-3 px-4 border-2 border-slate-200 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center space-x-2">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              <span>GitHub</span>
+            </button>
+          </div>
+
+          <div class="relative">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-slate-200"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span class="px-4 bg-white text-slate-500 font-medium">或使用激活码注册</span>
+            </div>
+          </div>
+
+          <!-- Email Register Form (Hidden by default) -->
+          <div id="emailRegisterForm" class="space-y-4 hidden">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">邮箱地址</label>
+              <input type="email" placeholder="请输入您的邮箱" class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">用户名</label>
+              <input type="text" placeholder="设置您的用户名" class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">密码</label>
+              <input type="password" placeholder="请设置密码（至少8位）" class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">确认密码</label>
+              <input type="password" placeholder="请再次输入密码" class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium" />
+            </div>
+            <div class="flex items-start space-x-3 pt-2">
+              <input type="checkbox" id="agreeTermsEmail" class="mt-1 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+              <label for="agreeTermsEmail" class="text-sm text-slate-600">
+                我已阅读并同意 <a href="#" class="terms-link text-blue-600 font-semibold hover:text-blue-700 hover:underline" data-target="agreeTermsEmail">用户服务协议</a> 和 <a href="#" class="privacy-link text-blue-600 font-semibold hover:text-blue-700 hover:underline" data-target="agreeTermsEmail">隐私政策</a>
+              </label>
+            </div>
+            <button class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center justify-center space-x-2 active:scale-[0.98]">
+              <span class="iconify" data-icon="solar:rocket-2-bold-duotone"></span>
+              <span>创建账户</span>
+            </button>
+            <button id="backToRegisterOptions" class="w-full py-2 text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">
+              ← 返回选择其他方式
+            </button>
+          </div>
+
+          <!-- Activation Code Register -->
+          <div id="activationCodeRegister" class="space-y-4">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">激活码</label>
+              <input type="text" placeholder="请输入您的激活码" class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">用户名</label>
+              <input type="text" placeholder="设置您的用户名" class="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium" />
+            </div>
+            <div class="flex items-start space-x-3 pt-2">
+              <input type="checkbox" id="agreeTerms" class="mt-1 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+              <label for="agreeTerms" class="text-sm text-slate-600">
+                我已阅读并同意 <a href="#" class="terms-link text-blue-600 font-semibold hover:text-blue-700 hover:underline" data-target="agreeTerms">用户服务协议</a> 和 <a href="#" class="privacy-link text-blue-600 font-semibold hover:text-blue-700 hover:underline" data-target="agreeTerms">隐私政策</a>
+              </label>
+            </div>
+            <button class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center justify-center space-x-2 active:scale-[0.98]">
+              <span class="iconify" data-icon="solar:rocket-2-bold-duotone"></span>
+              <span>创建账户</span>
+            </button>
+          </div>
+
+          <p class="text-center text-sm text-slate-500">
+            已有账户？<button id="toLogin" class="text-blue-600 font-bold hover:text-blue-700">立即登录</button>
+          </p>
+        </div>
+
+        <!-- Footer Links -->
+        <div class="mt-8 pt-6 border-t border-slate-100">
+          <div class="flex justify-center items-center space-x-2 text-sm text-slate-500">
+            <span>由</span>
+            <span class="font-bold text-blue-600">JitWord AI</span>
+            <span>提供技术支持</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terms Modal -->
+  <div id="termsModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+            <span class="iconify text-white text-xl" data-icon="solar:document-text-bold-duotone"></span>
+          </div>
+          <h2 class="text-xl font-bold text-slate-900">用户服务协议</h2>
+        </div>
+        <button class="modal-close w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors">
+          <span class="iconify text-xl" data-icon="solar:close-circle-bold-duotone"></span>
+        </button>
+      </div>
+      <!-- Modal Body -->
+      <div class="modal-body flex-1 overflow-y-auto p-6">
+        <div class="prose prose-slate max-w-none text-sm">
+          <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-6 rounded-r-lg">
+            <p class="text-blue-800 m-0 text-xs">
+              <strong>提示：</strong>请您仔细阅读本协议。当您点击"我已知晓"按钮时，即表示您已阅读、理解并同意接受本协议的所有条款。
+            </p>
+          </div>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">1. 协议范围</h3>
+            <p class="text-slate-600 leading-relaxed mb-2">
+              本《用户服务协议》（以下简称"本协议"）是您（以下简称"用户"或"您"）与<strong>重庆橙讯智科网络科技有限公司</strong>（以下简称"我们"或"公司"）之间关于您使用JitSlide AI平台（以下简称"本平台"或"本服务"）所订立的协议。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">2. 服务说明</h3>
+            <p class="text-slate-600 leading-relaxed mb-2">
+              JitSlide AI是由重庆橙讯智科网络科技有限公司开发运营的智能演示文稿生成平台，利用人工智能技术帮助用户快速创建专业的PPT演示文稿。
+            </p>
+            <p class="text-slate-600 leading-relaxed mb-2">我们的服务包括但不限于：</p>
+            <ul class="list-disc list-inside text-slate-600 space-y-1 ml-2 text-xs">
+              <li>AI智能生成PPT内容大纲和结构</li>
+              <li>提供海量专业设计模板</li>
+              <li>一键导出PPTX格式文件</li>
+              <li>知识库管理与问答服务</li>
+              <li>团队协作与共享功能</li>
+            </ul>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">3. 账号注册与管理</h3>
+            <p class="text-slate-600 leading-relaxed mb-2 text-xs">
+              <strong>3.1 注册资格：</strong>您确认，在您完成注册程序时，您应当是具备完全民事权利能力和完全民事行为能力的自然人、法人或其他组织。
+            </p>
+            <p class="text-slate-600 leading-relaxed mb-2 text-xs">
+              <strong>3.2 注册信息：</strong>您应当按本平台的提示准确、完整地提供您的信息，并保持信息的真实性、准确性、完整性和时效性。
+            </p>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              <strong>3.3 账号安全：</strong>您的账号和密码由您自行设置并保管，您应对您账号项下的所有行为结果负责。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">4. 用户行为规范</h3>
+            <p class="text-slate-600 leading-relaxed mb-2 text-xs">您承诺遵守法律法规、社会主义制度、国家利益、公民合法权益、公共秩序、社会道德风尚和信息真实性等"七条底线"，并承诺不从事以下行为：</p>
+            <ul class="list-disc list-inside text-slate-600 space-y-1 ml-2 text-xs">
+              <li>发布、传送、传播、储存违反国家法律法规的内容</li>
+              <li>发布、传送、传播、储存侵害他人名誉权、肖像权、知识产权、商业秘密等合法权利的内容</li>
+              <li>虚构事实、隐瞒真相以误导、欺骗他人</li>
+              <li>发布、传送、传播广告信息及垃圾信息</li>
+              <li>利用本平台从事任何违法犯罪活动</li>
+            </ul>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">5. 知识产权</h3>
+            <p class="text-slate-600 leading-relaxed mb-2 text-xs">
+              <strong>5.1 平台知识产权：</strong>我们拥有本平台及相关服务的所有知识产权，包括但不限于商标、专利、著作权、商业秘密等。
+            </p>
+            <p class="text-slate-600 leading-relaxed mb-2 text-xs">
+              <strong>5.2 用户内容：</strong>您通过本平台上传、创建的原创内容，其知识产权归您所有。
+            </p>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              <strong>5.3 AI生成内容：</strong>您理解并同意，通过本平台AI功能生成的内容，其使用应当遵守相关法律法规。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">6. 免责声明</h3>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              您理解并同意，在法律允许的范围内，我们不就以下情况承担责任：因不可抗力或意外事件导致的服务中断或数据丢失；用户自身原因导致的账号、密码泄露或数据丢失；AI生成内容的准确性、合法性或适用性问题。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">7. 争议解决</h3>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              本协议的订立、执行和解释及争议的解决均应适用中华人民共和国法律。如双方就本协议内容或其执行发生任何争议，双方应尽力友好协商解决；协商不成时，任何一方均可向<strong>重庆橙讯智科网络科技有限公司</strong>所在地有管辖权的人民法院提起诉讼。
+            </p>
+          </section>
+
+          <div class="text-xs text-slate-400 text-center pt-4 border-t border-slate-100">
+            重庆橙讯智科网络科技有限公司 版权所有 © 2026
+          </div>
+        </div>
+      </div>
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <button class="modal-acknowledge px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-200 transition-all active:scale-[0.98] flex items-center space-x-2">
+          <span class="iconify" data-icon="solar:check-circle-bold-duotone"></span>
+          <span>我已知晓</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy Modal -->
+  <div id="privacyModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+            <span class="iconify text-white text-xl" data-icon="solar:shield-check-bold-duotone"></span>
+          </div>
+          <h2 class="text-xl font-bold text-slate-900">隐私政策</h2>
+        </div>
+        <button class="modal-close w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors">
+          <span class="iconify text-xl" data-icon="solar:close-circle-bold-duotone"></span>
+        </button>
+      </div>
+      <!-- Modal Body -->
+      <div class="modal-body flex-1 overflow-y-auto p-6">
+        <div class="prose prose-slate max-w-none text-sm">
+          <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mb-6 rounded-r-lg">
+            <p class="text-blue-800 m-0 text-xs">
+              <strong>隐私保护承诺：</strong>重庆橙讯智科网络科技有限公司非常重视您的个人信息保护。本政策将帮助您了解我们如何收集、使用、存储和保护您的个人信息。
+            </p>
+          </div>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">1. 我们收集的信息</h3>
+            <p class="text-slate-600 leading-relaxed mb-2 text-xs">在您使用本服务过程中，我们可能会收集以下类型的信息：</p>
+            <p class="text-slate-600 leading-relaxed mb-1 text-xs">
+              <strong>1.1 您提供的信息：</strong>当您注册账号时，我们会收集您的电子邮箱地址、手机号码、用户名和密码；您可以选择提供头像、昵称、职位、公司等个人资料信息。
+            </p>
+            <p class="text-slate-600 leading-relaxed mb-1 text-xs">
+              <strong>1.2 自动收集的信息：</strong>设备型号、操作系统版本、浏览器类型、IP地址、访问时间、访问页面、操作记录等。
+            </p>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              <strong>1.3 您上传的内容：</strong>您上传至本平台的文档、图片、文本等内容，仅用于为您提供AI处理服务。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">2. 我们如何使用您的信息</h3>
+            <p class="text-slate-600 leading-relaxed mb-2 text-xs">我们收集您的信息主要用于以下目的：</p>
+            <ul class="list-disc list-inside text-slate-600 space-y-1 ml-2 text-xs">
+              <li>为您提供、维护和改进本服务</li>
+              <li>验证您的身份，防止欺诈和滥用</li>
+              <li>处理您的支付和订阅管理</li>
+              <li>向您发送服务通知、更新和重要信息</li>
+              <li>响应您的客服请求和技术支持</li>
+            </ul>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">3. 信息的共享与披露</h3>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              我们承诺不会出售您的个人信息。我们可能会与为我们提供服务的第三方公司共享信息，如云服务提供商、支付处理商等。在法律法规要求、法院命令或政府机关要求的情况下，我们可能会披露您的信息。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">4. 信息的存储与保护</h3>
+            <p class="text-slate-600 leading-relaxed mb-2 text-xs">
+              <strong>数据安全：</strong>我们采用行业标准的物理、电子和管理措施来保护您的个人信息，包括但不限于SSL加密传输、数据加密存储、访问控制等。
+            </p>
+            <p class="text-slate-600 leading-relaxed mb-2 text-xs">
+              <strong>数据存储位置：</strong>您的个人信息存储在中国大陆境内的服务器上。
+            </p>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              <strong>数据保留期限：</strong>我们将在实现本政策所述目的所必需的期限内保留您的个人信息。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">5. 您的权利</h3>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              根据适用的法律法规，您对您的个人信息享有以下权利：访问权、更正权、删除权、限制处理权、数据可携带权、反对权。如需行使上述权利，请通过本政策末尾的联系方式与我们联系。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">6. Cookie政策</h3>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              我们使用Cookie和类似技术来改善您的浏览体验、分析网站流量和个性化内容。我们使用必要Cookie用于网站基本功能，功能Cookie用于记住您的偏好设置，分析Cookie用于了解用户如何使用我们的网站。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">7. 未成年人保护</h3>
+            <p class="text-slate-600 leading-relaxed text-xs">
+              本服务不面向14周岁以下的儿童。如果我们发现收集了14周岁以下儿童的个人信息，我们将立即删除相关信息。
+            </p>
+          </section>
+
+          <section class="mb-6">
+            <h3 class="text-base font-bold text-slate-900 mb-3">8. 联系我们</h3>
+            <div class="bg-slate-50 rounded-lg p-3 text-xs">
+              <p class="text-slate-700 mb-1"><strong>公司名称：</strong>重庆橙讯智科网络科技有限公司</p>
+              <p class="text-slate-700 mb-1"><strong>联系邮箱：</strong>flowmix@163.com</p>
+              <p class="text-slate-700"><strong>服务时间：</strong>工作日 9:00-18:00</p>
+            </div>
+          </section>
+
+          <div class="text-xs text-slate-400 text-center pt-4 border-t border-slate-100">
+            重庆橙讯智科网络科技有限公司 版权所有 © 2026
+          </div>
+        </div>
+      </div>
+      <!-- Modal Footer -->
+      <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <button class="modal-acknowledge px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-200 transition-all active:scale-[0.98] flex items-center space-x-2">
+          <span class="iconify" data-icon="solar:check-circle-bold-duotone"></span>
+          <span>我已知晓</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching functionality
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const toRegister = document.getElementById('toRegister');
+    const toLogin = document.getElementById('toLogin');
+
+    // Login form elements
+    const emailLoginBtn = document.getElementById('emailLoginBtn');
+    const emailLoginForm = document.getElementById('emailLoginForm');
+    const activationCodeLogin = document.getElementById('activationCodeLogin');
+    const backToOptions = document.getElementById('backToOptions');
+
+    // Register form elements
+    const emailRegisterBtn = document.getElementById('emailRegisterBtn');
+    const emailRegisterForm = document.getElementById('emailRegisterForm');
+    const activationCodeRegister = document.getElementById('activationCodeRegister');
+    const backToRegisterOptions = document.getElementById('backToRegisterOptions');
+
+    function showLogin() {
+      loginTab.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+      loginTab.classList.remove('text-slate-600');
+      registerTab.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+      registerTab.classList.add('text-slate-600');
+      loginForm.classList.remove('hidden');
+      registerForm.classList.add('hidden');
+      // Reset login form to default state
+      resetLoginForm();
+    }
+
+    function showRegister() {
+      registerTab.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+      registerTab.classList.remove('text-slate-600');
+      loginTab.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+      loginTab.classList.add('text-slate-600');
+      registerForm.classList.remove('hidden');
+      loginForm.classList.add('hidden');
+      // Reset register form to default state
+      resetRegisterForm();
+    }
+
+    function resetLoginForm() {
+      emailLoginForm.classList.add('hidden');
+      activationCodeLogin.classList.remove('hidden');
+      const socialButtons = loginForm.querySelector('.grid.grid-cols-2');
+      const divider = loginForm.querySelector('.relative');
+      if (socialButtons) socialButtons.classList.remove('hidden');
+      if (divider) divider.classList.remove('hidden');
+    }
+
+    function resetRegisterForm() {
+      emailRegisterForm.classList.add('hidden');
+      activationCodeRegister.classList.remove('hidden');
+      const socialButtons = registerForm.querySelector('.grid.grid-cols-2');
+      const divider = registerForm.querySelector('.relative');
+      if (socialButtons) socialButtons.classList.remove('hidden');
+      if (divider) divider.classList.remove('hidden');
+    }
+
+    // Email login button click
+    emailLoginBtn.addEventListener('click', () => {
+      emailLoginForm.classList.remove('hidden');
+      activationCodeLogin.classList.add('hidden');
+      const socialButtons = loginForm.querySelector('.grid.grid-cols-2');
+      const divider = loginForm.querySelector('.relative');
+      if (socialButtons) socialButtons.classList.add('hidden');
+      if (divider) divider.classList.add('hidden');
+    });
+
+    // Back to login options
+    backToOptions.addEventListener('click', () => {
+      resetLoginForm();
+    });
+
+    // Email register button click
+    emailRegisterBtn.addEventListener('click', () => {
+      emailRegisterForm.classList.remove('hidden');
+      activationCodeRegister.classList.add('hidden');
+      const socialButtons = registerForm.querySelector('.grid.grid-cols-2');
+      const divider = registerForm.querySelector('.relative');
+      if (socialButtons) socialButtons.classList.add('hidden');
+      if (divider) divider.classList.add('hidden');
+    });
+
+    // Back to register options
+    backToRegisterOptions.addEventListener('click', () => {
+      resetRegisterForm();
+    });
+
+    loginTab.addEventListener('click', showLogin);
+    registerTab.addEventListener('click', showRegister);
+    toRegister.addEventListener('click', showRegister);
+    toLogin.addEventListener('click', showLogin);
+
+    // Modal functionality
+    const termsModal = document.getElementById('termsModal');
+    const privacyModal = document.getElementById('privacyModal');
+    let currentCheckboxTarget = null;
+
+    // Open modal function
+    function openModal(modal, checkboxId) {
+      currentCheckboxTarget = checkboxId;
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    // Close modal function
+    function closeModal(modal) {
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
+      currentCheckboxTarget = null;
+    }
+
+    // Terms link click handlers
+    document.querySelectorAll('.terms-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = link.getAttribute('data-target');
+        openModal(termsModal, targetId);
+      });
+    });
+
+    // Privacy link click handlers
+    document.querySelectorAll('.privacy-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = link.getAttribute('data-target');
+        openModal(privacyModal, targetId);
+      });
+    });
+
+    // Close button handlers
+    document.querySelectorAll('.modal-close').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const modal = btn.closest('.modal-overlay');
+        closeModal(modal);
+      });
+    });
+
+    // Acknowledge button handlers
+    document.querySelectorAll('.modal-acknowledge').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const modal = btn.closest('.modal-overlay');
+        // Check the corresponding checkbox
+        if (currentCheckboxTarget) {
+          const checkbox = document.getElementById(currentCheckboxTarget);
+          if (checkbox) {
+            checkbox.checked = true;
+          }
+        }
+        closeModal(modal);
+      });
+    });
+
+    // Close modal when clicking overlay
+    [termsModal, privacyModal].forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          closeModal(modal);
+        }
+      });
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (termsModal.classList.contains('active')) {
+          closeModal(termsModal);
+        }
+        if (privacyModal.classList.contains('active')) {
+          closeModal(privacyModal);
+        }
+      }
+    });
+
+    // Form submission handlers (demo)
+    document.addEventListener('DOMContentLoaded', () => {
+      // Email login submission
+      const emailLoginSubmitBtn = emailLoginForm.querySelector('button.bg-blue-600');
+      if (emailLoginSubmitBtn) {
+        emailLoginSubmitBtn.addEventListener('click', () => {
+          const email = emailLoginForm.querySelector('input[type="email"]').value;
+          const password = emailLoginForm.querySelector('input[type="password"]').value;
+          
+          if (!email || !password) {
+            alert('请填写完整的邮箱和密码');
+            return;
+          }
+          
+          if (!email.includes('@')) {
+            alert('请输入有效的邮箱地址');
+            return;
+          }
+          
+          // 登录成功，跳转到工作台
+          window.location.href = 'home.html';
+        });
+      }
+
+      // Activation code login submission
+      const activationLoginBtn = activationCodeLogin.querySelector('button.bg-blue-600');
+      if (activationLoginBtn) {
+        activationLoginBtn.addEventListener('click', () => {
+          const code = activationCodeLogin.querySelector('input[type="text"]').value;
+          
+          if (!code) {
+            alert('请输入激活码');
+            return;
+          }
+          
+          // 登录成功，跳转到工作台
+          window.location.href = 'home.html';
+        });
+      }
+
+      // Email register submission
+      const emailRegisterSubmitBtn = emailRegisterForm.querySelector('button.bg-blue-600');
+      if (emailRegisterSubmitBtn) {
+        emailRegisterSubmitBtn.addEventListener('click', () => {
+          const email = emailRegisterForm.querySelector('input[type="email"]').value;
+          const username = emailRegisterForm.querySelectorAll('input[type="text"]')[0].value;
+          const password = emailRegisterForm.querySelectorAll('input[type="password"]')[0].value;
+          const confirmPassword = emailRegisterForm.querySelectorAll('input[type="password"]')[1].value;
+          const agreed = document.getElementById('agreeTermsEmail').checked;
+      
+          if (!email || !username || !password || !confirmPassword) {
+            alert('请填写所有必填项');
+            return;
+          }
+      
+          if (!email.includes('@')) {
+            alert('请输入有效的邮箱地址');
+            return;
+          }
+      
+          if (password.length < 8) {
+            alert('密码长度至少8位');
+            return;
+          }
+      
+          if (password !== confirmPassword) {
+            alert('两次密码输入不一致');
+            return;
+          }
+      
+          if (!agreed) {
+            alert('请同意服务条款和隐私政策');
+            return;
+          }
+      
+          // 注册成功，跳转到工作台
+          window.location.href = 'home.html';
+        });
+      }
+
+      // Activation code register submission
+      const activationRegisterBtn = activationCodeRegister.querySelector('button.bg-blue-600');
+      if (activationRegisterBtn) {
+        activationRegisterBtn.addEventListener('click', () => {
+          const code = activationCodeRegister.querySelectorAll('input[type="text"]')[0].value;
+          const username = activationCodeRegister.querySelectorAll('input[type="text"]')[1].value;
+          const agreed = document.getElementById('agreeTerms').checked;
+
+          if (!code || !username) {
+            alert('请填写所有必填项');
+            return;
+          }
+
+          if (!agreed) {
+            alert('请同意服务条款和隐私政策');
+            return;
+          }
+
+          // 注册成功，跳转到工作台
+          window.location.href = 'home.html';
+        });
+      }
+    });
+  </script>
+</body>
+</html>

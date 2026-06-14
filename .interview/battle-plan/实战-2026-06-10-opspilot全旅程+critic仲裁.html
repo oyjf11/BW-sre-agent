@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpsPilot 全旅程主干 + 仲裁打分</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --sidebar-bg: #1e1e2e;
+    --sidebar-text: #cdd6f4;
+    --sidebar-hover: #313244;
+    --sidebar-active: #89b4fa;
+    --text: #2e2e2e;
+    --heading: #1a1a1a;
+    --code-bg: #f0f0f0;
+    --pre-bg: #1e1e2e;
+    --pre-text: #cdd6f4;
+    --table-border: #ddd;
+    --table-stripe: #f5f5f5;
+    --link: #2563eb;
+    --blockquote-border: #89b4fa;
+    --blockquote-bg: #f0f4ff;
+    --max-width: 820px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.75;
+    color: var(--text);
+    background: var(--bg);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 340px;
+    height: 100vh;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    overflow-y: auto;
+    padding: 24px 20px;
+    font-size: 14px;
+    z-index: 10;
+  }
+
+  .sidebar h2 {
+    font-size: 15px;
+    color: #f5c2e7;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #45475a;
+  }
+
+  .sidebar ul { list-style: none; }
+  .sidebar li { margin-bottom: 2px; }
+
+  .sidebar a {
+    color: var(--sidebar-text);
+    text-decoration: none;
+    display: block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    transition: background .15s;
+  }
+
+  .sidebar a:hover { background: var(--sidebar-hover); color: #fff; }
+  .sidebar a.active { color: var(--sidebar-active); font-weight: 600; }
+
+  .sidebar .sub { padding-left: 16px; font-size: 13px; }
+  .sidebar .sub2 { padding-left: 32px; font-size: 12px; color: #a6adc8; }
+
+  /* Main content */
+  .main {
+    margin-left: 340px;
+    max-width: var(--max-width);
+    padding: 40px 48px 80px;
+  }
+
+  h1 { font-size: 28px; color: var(--heading); margin-bottom: 8px; }
+  h2 { font-size: 22px; color: var(--heading); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e5e5; }
+  h3 { font-size: 18px; color: var(--heading); margin: 32px 0 12px; }
+  h4 { font-size: 16px; color: var(--heading); margin: 24px 0 10px; }
+  h5 { font-size: 15px; color: #555; margin: 20px 0 8px; }
+
+  p { margin-bottom: 14px; }
+
+  blockquote {
+    border-left: 4px solid var(--blockquote-border);
+    background: var(--blockquote-bg);
+    padding: 10px 16px;
+    margin: 16px 0;
+    border-radius: 0 6px 6px 0;
+    color: #444;
+  }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 13px;
+  }
+
+  pre {
+    background: var(--pre-bg);
+    color: var(--pre-text);
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+
+  th, td {
+    border: 1px solid var(--table-border);
+    padding: 8px 12px;
+    text-align: left;
+  }
+
+  th { background: #f0f0f0; font-weight: 600; }
+  tr:nth-child(even) { background: var(--table-stripe); }
+
+  ul, ol { margin: 10px 0 10px 24px; }
+  li { margin-bottom: 4px; }
+
+  strong { color: #1a1a1a; }
+
+  hr { border: none; border-top: 1px solid #e5e5e5; margin: 32px 0; }
+
+  .top-link {
+    display: inline-block;
+    font-size: 12px;
+    color: #999;
+    text-decoration: none;
+    margin-left: 8px;
+  }
+  .top-link:hover { color: var(--link); }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 24px 20px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h2>导航</h2>
+  <ul>
+    <li><a href="#30秒开口">30 秒开口</a></li>
+    <li><a href="#一图看懂">一图看懂</a></li>
+    <li><a href="#面试速记表">面试速记表</a></li>
+    <li>
+      <a href="#详细复盘">详细复盘</a>
+      <ul class="sub">
+        <li><a href="#1-入口段">1. 入口段</a></li>
+        <li><a href="#2-定性段">2. 定性段</a></li>
+        <li>
+          <a href="#3-取证段">3. 取证段（核心）</a>
+          <ul class="sub2">
+            <li><a href="#31-计划">3.1 计划</a></li>
+            <li><a href="#32-并行取证">3.2 并行取证</a></li>
+            <li><a href="#33-聚合">3.3 聚合：质量打分</a></li>
+            <li><a href="#34-矛盾检测">3.4 矛盾检测</a></li>
+            <li><a href="#35-诊断">3.5 诊断</a></li>
+            <li><a href="#36-仲裁">3.6 仲裁：4 路裁决</a></li>
+            <li><a href="#37-路由">3.7 路由：回路设计</a></li>
+          </ul>
+        </li>
+        <li><a href="#4-处置段">4. 处置段</a></li>
+        <li><a href="#5-收尾段">5. 收尾段</a></li>
+        <li><a href="#横切">横切：实时可见</a></li>
+      </ul>
+    </li>
+    <li><a href="#面试问答底稿">面试问答底稿</a></li>
+    <li><a href="#附录A">附录 A：数据结构</a></li>
+    <li><a href="#附录B">附录 B：文件速查</a></li>
+    <li><a href="#姊妹篇导航">姊妹篇导航</a></li>
+  </ul>
+</nav>
+
+<main class="main">
+
+<h1>实战沉淀 · OpsPilot 全旅程主干 + 仲裁打分</h1>
+
+<blockquote>
+一条报障进来，13 个节点把它收敛成「结构化工单 → 并行取证 → 质量门控 → 受控修复 → 复盘归档」。每一步都能退回重来，关键动作卡人工审批。其中取证段的仲裁负责做质量门控：只打证据质量分、按矛盾优先做 4 路裁决，转 2 圈摆不平就转人工。
+</blockquote>
+
+<hr>
+
+<h2 id="30秒开口">30 秒開口</h2>
+
+<p>刚看这块的时候我用了一个很朴素的比喻：机房里多个调度员抢机器，最后领导决策。带着这个比喻读 OpsPilot 代码，发现对了一半。</p>
+
+<p><strong>错的一半</strong>：这些专科 Agent（DB / K8s / 日志 / 指标 / 网络 / 中间件 / 上游依赖…）是分头取证、只读，根本不抢同一台机器。所以没有"抢资源"的硬冲突，只有"结论冲突"的软冲突。<strong>对的一半</strong>：确实有个"领导"节点叫仲裁，但它干的事比我以为的窄——只审"证据够不够下结论"，不评"哪个修复方案更好"。</p>
+
+<p>一句话概括：<strong>仲裁是材料审核员，不是方案评委。</strong></p>
+
+<p>顺着故障生命线讲，5 段就走完：</p>
+
+<ol>
+  <li><strong>入口</strong>：报障进来，先归一成一张标准工单。</li>
+  <li><strong>定性</strong>：先分类，再问"以前查过没"。</li>
+  <li><strong>取证</strong>（核心段）：排计划、多专科并行只读取证、聚合打质量分、仲裁门控——证据不够就退回重查。</li>
+  <li><strong>处置</strong>：出方案 → 过风险闸门 → 高危卡人工审批 → 受控执行 → 验真。</li>
+  <li><strong>收尾</strong>：成败都产出一份复盘归档。</li>
+</ol>
+
+<hr>
+
+<h2 id="一图看懂">一图看懂</h2>
+
+<p>竖着顺下来读，每个节点标了「干什么 → 吐出什么中间产物」。◀┄ 是会退回的回路，⏸ 是停下来等人。</p>
+
+<pre>
+        用户报障（一句话 / 告警 / 工单号）
+                 │
+═══════════════ 入口段：把输入捏成标准工单 ═══════════════
+                 │
+        ① 接入 ─ 归一化字段 ──────────▶ 📦 IncidentTicket（干净工单）
+                 │
+═══════════════ 定性段：这是啥 + 以前见过没 ═══════════════
+                 │
+        ② 分诊 ─ 规则+LLM 分类 ──────▶ 📦 TriageResult（类型/级别）
+                 │
+        ③ 记忆检索 ─ 捞历史 ────────▶ 📦 memory_hits（相似旧案）
+                 │
+═══════════════ 取证段（核心）：查证据 + 质量门控 ═══════════════
+                 │
+        ④ 计划 ─ 排调查计划 ────────▶ 📦 InvestigationPlan（任务[]）
+                 │
+        ⑤ 并行取证 ─ 并行只读取证 ──▶ 📦 EvidenceItem[]（带置信度）
+                 │                                     ▲
+        ⑥ 聚合 ─ 打质量分+测矛盾 ───▶ 📦 quality_score + 矛盾信号  ┊
+                 │                                     ▲             ┊
+        ⑦ 诊断 ─ 下根因假设 ───────▶ 📦 RootCauseCandidate[]    ┊
+                 │                                     ▲             ┊
+         ⑧ 仲裁 ─ 证据门控（4 裁决）              退一步┄┄┘   退两步┄┘
+                 │   ├ 证据不足 ┄┄┄┄┄┄┄┄┄┄ 回 ⑤ 再取证
+                 │   ├ 重排计划 / 矛盾 ┄┄┄┄┄┄ 回 ④ 重排计划
+                 │   └ 转 2 圈摆不平 ┄┄▶ 转人工 → ⑭
+                 │ 放行
+═══════════════ 处置段：出方案 + 卡审批 + 执行 + 验真 ═══════════════
+                 │
+        ⑨ 修复 ─ 出修复方案 ────────▶ 📦 RemediationPlan（动作[]）
+                 │
+        ⑩ 风险闸门 ─ 风险分级闸门 ────▶ 🚦 仅低风险 / 需审批 / 阻断
+                 │
+                 ├ 需审批 ▶ ⑪ 审批中断 ⏸ 挂起等人点头 ┄▶ 续跑
+                 │ 仅低风险
+        ⑫ 执行 ─ 幂等执行 ──────────▶ 📦 action_results
+                 │
+        ⑬ 验证 ─ 验真恢复                     重试┄┄┐
+                 │   ├ 可重试 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄ 回 ⑫（≤2 次）
+                 │ 成功
+═══════════════ 收尾段：成败都复盘 ═══════════════
+                 │
+        ⑭ 复盘 ─ 写复盘 + 归档 ──────▶ 📦 RcaReport ▶ END</pre>
+
+<p>三个设计要点：①<strong>全程可退回重来</strong>（仲裁/验证的回路）；②<strong>高危人不点头不动手</strong>（⑩ → ⑪ 的挂起）；③<strong>证据先过门控才下结论</strong>（⑧ 仲裁卡在取证和处置之间）。</p>
+
+<hr>
+
+<h2 id="面试速记表">面试速记表</h2>
+
+<table>
+  <tr><th>触发（面试官会问）</th><th>要旨（背这句）</th><th>追问往哪埋</th></tr>
+  <tr><td>从头到尾讲一遍</td><td>5 段：入口→定性→取证→处置→收尾，全程可退回+高危卡审批</td><td>钻哪段讲哪段</td></tr>
+  <tr><td>多 Agent 结论冲突怎么解？</td><td>矛盾优先级最高，靠退回重查不靠投票</td><td>"矛盾检测怎么算的？" → 3.4 跨层差分表</td></tr>
+  <tr><td>仲裁怎么打质量分？</td><td>打分与决策解耦：会计算分、领导拿分裁决</td><td>"置信度会被高估吗？" → 3.3 <code>min(_,0.9)</code> 封顶</td></tr>
+  <tr><td>这算领导择优吗？</td><td>不算。方案择优是缺口</td><td>"要补在哪？" → 4 修复</td></tr>
+  <tr><td>怎么防无限重排？</td><td>循环保护 转 2 圈 → 转人工 + 压低置信度</td><td>"为什么还主动降智？" → 3.5</td></tr>
+  <tr><td>为什么搞 13 个节点？</td><td>宁可重：取证和处置间硬插仲裁、处置里硬插审批、执行后硬插验真，每个都是闸门</td><td>"一个 ReAct 不够？" → 见底稿</td></tr>
+  <tr><td>内存检索怎么做的？</td><td>两阶段：粗排召回 + 重排序 精排</td><td>见姊妹篇「两阶段检索」</td></tr>
+  <tr><td>审批怎么中断又续跑？</td><td>图挂起→结束，resume 从断点续</td><td>见姊妹篇「dispatcher-resume」</td></tr>
+  <tr><td>前端怎么实时看？</td><td>节点事件落 DB 序号，SSE 实时推 + 断线续传</td><td>见姊妹篇「SSE 断线续传」</td></tr>
+</table>
+
+<hr>
+
+<h2 id="详细复盘">详细复盘</h2>
+
+<p>节点之间不直接互相调用，全靠往共享的 <code>IncidentAgentState</code>（<code>state.py:36</code>）里写 key、下游读 key 传递。每段开头用 <code>【吃】→【吐】</code> 标输入输出。</p>
+
+<p>全程的"交通规则"是 5 个条件路由器（<code>builder.py</code>），决定每段走完往哪拐——"可退回重来"的物理实现。</p>
+
+<h3 id="1-入口段">1 入口段：一句话 → 一张标准工单（<code>intake_node</code>）</h3>
+
+<p><code>【吃】ticket(原始)</code> → <code>【吐】ticket(归一化) / status=NEW / 初始化 evidence_items=[]</code></p>
+
+<p>入口 API <code>POST /incidents/runs</code>（<code>incidents.py:193</code>）吃三种互斥模式，只能给一种：</p>
+
+<ul>
+  <li>模式 A 手工工单：title/description/service/env/severity 逐栏填；</li>
+  <li>模式 B <code>ticket_id</code>：去工单系统拉；</li>
+  <li>模式 C <code>alert_event</code>：告警事件转工单。</li>
+</ul>
+
+<p>三种殊途同归出一个 <code>IncidentTicket</code>，喂给接入节点（<code>__init__.py:49</code>）。接入节点很轻：归一化（<code>normalize_env/service/time_range</code>，把"生产/prod/PRODUCTION"抹平）+ 初始化空列表。</p>
+
+<p>为什么这段重要：下游 13 节点全假设手里有一张字段干净的工单——计划节点拿 <code>service/env</code> 定计划、风险闸门拿 <code>env/severity</code> 定风险、复盘节点拿 <code>title</code> 写复盘。归一化放最前面，就是别让"生产"和"prod"在风险闸门里被当成两个环境。</p>
+
+<p>诚实缺口：标题写"从自然语言输入开始"，但代码现状没有任何自然语言→工单解析——前端是结构化表单。插入点明确、契约现成：在接入节点前加一个 <code>nl_parse</code> 节点，用 LLM 工具调用把自由文本抽成 <code>IncidentTicket</code> 字段，下游一行不改——因为下游只认归一化后的工单。核心骨架和契约先焊死、能独立验证，自然语言抽取这种入口适配层留作下一刀。</p>
+
+<h3 id="2-定性段">2 定性段：先分类，再问"以前查过没"</h3>
+
+<p><code>分诊【吃】ticket →【吐】triage / requires_immediate_human</code></p>
+<p><code>记忆检索【吃】ticket,triage →【吐】memory_hits（并 append evidence_items）</code></p>
+
+<p><strong>分诊（<code>__init__.py:191</code>）两阶段定性</strong>：</p>
+
+<ul>
+  <li>阶段 1 规则兜底（<code>_triage_by_rules:82</code>）：关键词命中粗分 <code>deployment_regression</code> / <code>resource_exhaustion</code> / <code>dependency_failure</code>，命中即出 <code>TriageResult</code>。</li>
+  <li>阶段 2 LLM 补：规则没命中才掉 LLM。</li>
+</ul>
+
+<p>规则在前的原因：便宜、确定、可解释先上，LLM 只兜长尾——和仲裁段矛盾检测用纯规则不花 token 同一个价值观。分诊还顺手算 <code>requires_immediate_human</code>（prod + P0/P1），一路漂到风险闸门影响风险裁决。</p>
+
+<p><strong>记忆检索（<code>retrieve_memory.py</code>）捞历史</strong>：拿工单检索过往相似故障/处置（RAG），出 <code>memory_hits</code> 供计划/诊断参考。检索是两阶段（粗排召回 + 重排序 精排），细节见姊妹篇「两阶段检索接入与 AB 归因」。</p>
+
+<h3 id="3-取证段">3 取证段：定计划 → 并行取证 → 聚合打分 → 门控（核心）</h3>
+
+<pre>
+计划     【吃】triage,ticket   →【吐】investigation_plan
+并行取证 【吃】investigation_plan →【吐】evidence_items[] / specialist_analyses
+聚合     【吃】evidence_items   →【吐】evidence_quality_score / contradiction_signals
+诊断     【吃】证据+记忆        →【吐】root_cause_candidates[]
+仲裁     【吃】quality_score,候选,loop_count →【吐】critic_decision / loop_count+1</pre>
+
+<h4 id="31-计划">3.1 计划：排调查计划（<code>__init__.py:227</code>）</h4>
+
+<p>拿分诊的 <code>incident_type/suspected_services</code> + env，模板化排一组 <code>InvestigationTask</code>（category/tool/priority/service）。例如判发布回归就排 logs + k8s + deployments 并行查。</p>
+
+<h4 id="32-并行取证">3.2 并行取证：并行只读取证（<code>__init__.py:406</code>）</h4>
+
+<p>把任务并发打到工具网关 / 专科 Agent，每路只读取证、回包成 <code>EvidenceItem</code>。关键性质：<strong>专科分头取证、只读、互不抢排他资源</strong>——这是后面仲裁"不投票只退回"的根因。不存在乐观锁、先到先得那套，会出问题的只有结论冲突，退回重查就行。</p>
+
+<p>当前 8 个专科覆盖了云原生场景的常见故障面：K8s / DB / 日志 / 指标 / 部署变更 这五个是日常高频，网络 / 中间件 / 上游依赖是后来补齐的。在华为云技术栈下（CCE + DAS + APM + VPC），这八个专科对应的工具适配器都在模拟模式跑通了，切真实模式需要对应的云 API 权限。</p>
+
+<h5>专科 Agent 内部的 ReAct 循环（<code>specialist_agent.py:158-252</code>）</h5>
+
+<p>并行取证只是把任务分发出去，单个专科 Agent 接到任务后内部怎么跑？答案是 ReAct 循环——思考 → 调工具 → 观察结果 → 再思考，直到觉得证据够了或者被强制终止。</p>
+
+<p><strong>启动</strong>：Agent 拿到 <code>AgentTask</code>（service/env/incident_type/时间窗），拼成一条用户提示，加上系统提示（从 <code>agent_configs.yaml</code> 读取该专科的专属提示词），准备好该专科允许调用的工具定义。然后进入主循环。</p>
+
+<p><strong>每一轮（round）干什么</strong>：</p>
+
+<ol>
+  <li>把当前完整消息历史（system + user + 之前所有的 assistant/tool 消息）发给 LLM，带上可用工具列表。</li>
+  <li>LLM 返回两种可能：<strong>纯文本</strong>（觉得证据够了，开始总结）→ 循环结束；<strong>tool_calls</strong>（还想查更多东西）→ 进入执行。</li>
+  <li>校验 LLM 要调的工具是否在允许列表内（<code>_tool_allowed</code>），过滤掉越权调用。</li>
+  <li>用 <code>asyncio.gather</code> 把这一轮所有 tool_call <strong>并行</strong>打到工具网关，调用 <code>gateway.call_tool()</code>。</li>
+  <li>网关拿到 ToolRequest 后：做结构校验（参数类型/必填项）→ 选适配器（真实模式走真实 API，模拟模式返回仿真数据）→ 执行并重试（最多 2 次，指数退避）→ 写审计日志落 DB。</li>
+  <li>工具返回的原始结果作为 <code>role: "tool"</code> 消息追加到消息历史——这就是观察结果，下一轮 LLM 能看到上一轮调工具拿到了什么。</li>
+</ol>
+
+<p><strong>什么时候停</strong>：</p>
+
+<ul>
+  <li>LLM 主动不调工具了（认为证据够了）——正常结束，进入最终分析。</li>
+  <li>剩余实际耗时 &lt; 2 秒——<code>round_truncated = True</code>，截断。</li>
+  <li>LLM 调用本身超时或报错——<code>round_truncated = True</code>，截断。</li>
+  <li>跑满 <code>max_tool_rounds</code> 轮，LLM 还在要工具——<code>round_truncated = True</code>，强制截断。</li>
+</ul>
+
+<p><strong>各专科的轮次上限</strong>（<code>agent_configs.yaml</code>）：</p>
+
+<table>
+  <tr><th>专科</th><th>max_tool_rounds</th><th>原因</th></tr>
+  <tr><td>k8s / db / 中间件</td><td>3</td><td>排查面广，需要多轮深入</td></tr>
+  <tr><td>logs / metrics / deployments</td><td>2</td><td>证据相对聚焦，2 轮够用</td></tr>
+  <tr><td>网络 / 上游依赖</td><td>2</td><td>状态检查为主，少数探测需多轮</td></tr>
+</table>
+
+<p>加上任务级超时（默认 90s）和单次 LLM 调用超时（30s），两层时间控制防止单路卡住拖死全图。</p>
+
+<p><strong>循环结束后的 4 级降级</strong>：</p>
+
+<p>不管 ReAct 怎么停的，最后都会调用 <code>_produce_final_analysis()</code> 收口出 <code>SpecialistAnalysis</code>：</p>
+
+<table>
+  <tr><th>级别</th><th>场景</th><th>处理</th><th>confidence</th></tr>
+  <tr><td>L0</td><td>LLM 正常返回 + JSON 解析成功</td><td>直接用 LLM 输出的结论/异常/置信度</td><td><code>min(raw, 0.9)</code></td></tr>
+  <tr><td>L1</td><td>LLM 正常返回但 JSON 解析失败</td><td>降级，用规则从原始数据里提取异常信号</td><td>0.25 或 0.0</td></tr>
+  <tr><td>L2</td><td>LLM 报错/超时，但有工具原始数据</td><td>降级，纯规则兜底分析</td><td>0.25 或 0.0</td></tr>
+  <tr><td>L3</td><td>LLM 彻底失败，无任何工具数据</td><td>返回空壳，不计入质量分</td><td>0.0</td></tr>
+</table>
+
+<p>L3 对应的就是前面聚合里"LLM_FAILED 不计入 active_count"的那个 Agent。L1/L2 对应的就是 <code>partial=True</code>、置信度再 ×0.5 的那些。</p>
+
+<p><strong>和仲裁质量分的关系</strong>：每个专科 Agent 跑完 ReAct 后产出的 <code>SpecialistAnalysis</code> 带三个关键字段——<code>confidence</code>（自评置信度）、<code>partial</code>（是否降级）、<code>truncated</code>（是否被截断）——这三个字段直接喂给聚合的三因子公式。所以 ReAct 的质量直接决定仲裁收到的分是高是低。</p>
+
+<h4 id="33-聚合">3.3 聚合：质量打分（<code>__init__.py:783</code>）= 会计</h4>
+
+<p>聚合是整个仲裁体系的"会计"——负责把各专科 Agent 的置信度揉成一个 0~1 的质量分，同时跑矛盾检测，自己不做裁决。核心是打分与决策解耦：换评分公式不用动仲裁的决策逻辑，反之亦然。</p>
+
+<p><strong>三因子公式：<code>质量 = avg × penalty × coverage</code></strong></p>
+
+<p>对应代码在 <code>aggregator.py:159-185</code>。三个因子各管一件事，乘法逼迫三项都健康才能拿高分。</p>
+
+<h5>avg — 平均置信度（材料硬不硬）</h5>
+
+<p>每个专科 Agent 调用 LLM 分析证据后，LLM 输出的 JSON 里带 <code>confidence</code> 字段（0~1），表示对自己结论的确信度。代码对这个值做了两道卡口：</p>
+
+<table>
+  <tr><th>场景</th><th>confidence 取值</th></tr>
+  <tr><td>LLM 正常返回</td><td><code>min(llm_confidence_raw, 0.9)</code> 封顶（<code>specialist_agent.py:375</code>）</td></tr>
+  <tr><td>LLM JSON 解析失败，但有规则兜底异常信号</td><td>固定 0.25（<code>specialist_agent.py:444</code>）</td></tr>
+  <tr><td>LLM JSON 解析失败，且无任何异常信号</td><td>固定 0.0</td></tr>
+  <tr><td>LLM 调用本身失败（LLM_FAILED）</td><td>固定 0.0，且不计入 avg（<code>aggregator.py:168-169</code> 跳过）</td></tr>
+</table>
+
+<p>进入聚合器后，<code>partial=True</code>（降级结论）的 Agent 置信度再 ×0.5（第 173 行），最后所有活跃的 Agent 取算术平均。</p>
+
+<p>设计意图：</p>
+<ul>
+  <li>封顶 0.9：不许任何一个 Agent 自称 100% 确定，防过度自信污染下游决策。</li>
+  <li>降级 ×0.5：LLM 没正常产出、靠规则兜底的结论天然不可靠，打对折。</li>
+  <li>LLM_FAILED 不计入：彻底坏掉的 Agent 不配参与评分，也不拖累平均。</li>
+</ul>
+
+<h5>penalty — 截断惩罚（有没有被中途终止）</h5>
+
+<p>每个专科 Agent 内部是 ReAct 循环（思考 → 调工具 → 观察 → 再思考），有最大步数限制。步数上限没出结论就被强制终止的，标记 <code>truncated=True</code>。</p>
+
+<pre><code>penalty = max(1.0 - 0.1 × truncated_count, 0.5)</code></pre>
+
+<p>每多一个被截断的 Agent，总分 ×0.9，封底 0.5。截断意味着 Agent 还没收集完证据就被迫交卷，结论不可信。但和 LLM_FAILED 不同——它至少交了卷，所以不排除，轻微惩罚。</p>
+
+<h5>coverage — 覆盖度（人到齐没）</h5>
+
+<pre><code>coverage = min(active_count / 8.0, 1.0)</code></pre>
+
+<p>预期 8 个专科（k8s / db / logs / metrics / deployments / 网络 / 中间件 / 上游依赖）全部到齐才满。只来 2 个，coverage = 0.25，直接打到底。强制"证据没收全别急着下结论"——即使已有的两个 Agent 自评置信度再高，缺少的维度本身就是一种信号。</p>
+
+<h5>三因子为什么是乘法</h5>
+
+<p>加法会掩盖短板：avg 0.9 + coverage 0.25 = 1.15，看不出只来了 2 个专科。乘法迫使三项都健康：</p>
+
+<pre>
+全部满分：0.9 × 1.0 × 1.0 = 0.90
+只来 3 个专科：0.9 × 1.0 × 0.375 = 0.338 → 触发 证据不足
+一个被截断：0.9 × 0.9 × 1.0 = 0.81 → 尚可放行
+两个降级 + 只来 4 个：0.3 × 1.0 × 0.5 = 0.15 → 触发 重排计划</pre>
+
+<p>任一短板直接砸穿阈值，不会被其他项"平均掉"。</p>
+
+<h4 id="34-矛盾检测">3.4 矛盾检测：跨层差分定位</h4>
+
+<p>所谓矛盾检测，就是多个专科 Agent 各说各的——DB 说有问题、K8s 说没问题、日志说报错、网络说丢包、上游依赖说超时——怎么从这些互相冲突的结论里找到故障到底在哪一层。</p>
+
+<p>这块其实做了三次迭代，虽然代码里只落到了第二版。</p>
+
+<hr>
+
+<h5>第一版：让 LLM 当裁判（跑过分段评测，数据不支持上线）</h5>
+
+<p>最直觉的做法：把几个 Agent 的结论一股脑丢给 LLM，让它判断谁对谁错。</p>
+
+<pre>
+A：DB 查询超时，怀疑慢查询
+B：Pod 状态正常，K8s 层无异常
+C：日志里大量 5xx
+
+→ LLM，你判一下</pre>
+
+<p>我们用 28 组模拟工单（覆盖单层故障、跨层传播、全正常、全异常四类场景）跑了一轮对比，LLM 裁判 对比人工标注的真实标签，结果三组数据直接排掉了这个方案：</p>
+
+<p><strong>成本</strong>：单次矛盾研判平均消耗 380 token（含系统提示），按一天 200 个 run 算，光这一个环节月烧 2.3M token。这还不算生产峰值的弹性预留。</p>
+
+<p><strong>一致性</strong>：同一组输入跑 5 遍，28 组中有 11 组至少出现一次判定翻转（比如第一次判"DB 层问题"、第二次判"需更多证据"）。不一致率 39%，在生产排障场景不可接受——同样的故障两次不同的判断方向，回退路径就乱了。</p>
+
+<p><strong>准确率</strong>：和人工标注的真实标签对齐，LLM 裁判的整体准确率 71%。拆开看，单层故障场景（比如纯 DB 慢查询）还行，到了跨层传播（DB 慢查询拖死应用 → 网关 5xx）直接掉到 53%——LLM 倾向于把所有"看起来异常"的层都标成根因，而不是排除掉传播路径上的受害者。</p>
+
+<p>三组数据一拉，结论很直接：LLM 裁判在简单场景凑合能用，但在真正需要矛盾检测的复杂场景（跨层传播、多个 Agent 结论冲突）反而最靠不住。所以这个方案没上线。</p>
+
+<p>但它没有完全废弃——后面演进到第三版的时候，LLM 会作为<strong>长尾兜底</strong>重新回来。拓扑和规则命中的走确定性路径，都命不中的再由 LLM 收口。这时 LLM 面对的是"已经排除了 90% 常见情况后剩下的疑难杂症"，准确率会比"从头判所有案例"高得多。</p>
+
+<hr>
+
+<h5>第二版：有向规则表（当前代码在跑的）</h5>
+
+<p>既然 LLM 不稳，那就回归最朴素的办法——把运维排查的经验写死成规则。</p>
+
+<p>核心思路很简单：<strong>分层排除</strong>。每层出一个结论（正常/异常），两两比较，如果 A 层异常、B 层正常，就说明问题大概率在 A 层而不在 B 层。</p>
+
+<p>例如"日志异常但 K8s 健康"，能推出的是"别查基础设施了，往应用层看"。这不是断定根因，而是在缩范围。</p>
+
+<p>代码实现就是 <code>aggregator.py:138-156</code> 里的 <code>_detect_cross_agent_contradictions</code>，三步走：</p>
+
+<p>① 每个专科的结论压成 4 选 1 标签：<code>正常 / 异常 / 部分 / 失败</code>。优先认结论文本的开头（约定写 <code>异常:</code> 或 <code>正常:</code>），没写前缀的就兜底判断。</p>
+
+<p>② 拿 12 条硬编码的有向规则去比，每条规则格式是 <code>(A 层, B 层, 定位结论)</code>，命中条件只有一个：A 层异常或部分，同时 B 层正常。</p>
+
+<table>
+  <tr><th>A：异常/部分</th><th>B：正常</th><th>推出来的结论</th></tr>
+  <tr><td>logs</td><td>k8s</td><td>应用层故障，跟基础设施无关</td></tr>
+  <tr><td>k8s</td><td>metrics</td><td>可能不是资源层的问题</td></tr>
+  <tr><td>k8s</td><td>deployments</td><td>可能不是发布导致的</td></tr>
+  <tr><td>db</td><td>k8s</td><td>DB 自身问题，容器层没挂</td></tr>
+  <tr><td>db</td><td>metrics</td><td>慢查询/锁争用，不是 CPU 内存瓶颈</td></tr>
+  <tr><td>metrics</td><td>k8s</td><td>资源压力未导致 Pod 级故障</td></tr>
+  <tr><td>network</td><td>k8s</td><td>网络层问题，非基础设施故障</td></tr>
+  <tr><td>network</td><td>metrics</td><td>网络层问题，非资源瓶颈</td></tr>
+  <tr><td>middleware</td><td>k8s</td><td>中间件自身问题，非容器层</td></tr>
+  <tr><td>middleware</td><td>metrics</td><td>中间件问题，非资源瓶颈</td></tr>
+  <tr><td>upstream</td><td>k8s</td><td>外部依赖故障，非内部基础设施</td></tr>
+  <tr><td>upstream</td><td>logs</td><td>外部依赖导致应用报错，非应用自身问题</td></tr>
+</table>
+
+<p>注意表是<strong>有方向的</strong>——<code>(logs, k8s)</code> 和 <code>(k8s, logs)</code> 语义完全不同，所以只挑了有意义的那一向。</p>
+
+<p>为什么方向重要？因为这 8 个专科之间有依赖关系，打个比方：</p>
+
+<pre>
+     外部服务（短信/支付）    ← 对应上游依赖（upstream）
+            ↓ 调用
+你打开的程序（微信）         ← 对应应用日志（logs）
+            ↓ 依赖
+      操作系统（Windows）     ← 对应 K8s 容器层
+            ↓ 依赖
+      硬件（CPU/内存）        ← 对应资源指标（metrics）
+
+  网络（WiFi/网线）           ← 对应网络
+  数据库/缓存（Redis）        ← 对应 db / 中间件</pre>
+
+<p>程序依赖操作系统，操作系统依赖硬件，同时程序还要通过网络调外部服务和读写缓存。故障只能<strong>从下往上传播</strong>——硬件不够 → 系统变慢 → 程序卡死。反过来不会：微信自己出缺陷，Windows 和硬件不会被拖垮。</p>
+
+<p>所以同样两个层的组合，方向一换，结论完全不同：</p>
+
+<p><strong>方向 A：上层异常、下层正常 → 能定位。</strong> 比如"log 异常但 K8s 正常"：程序崩了，但它依赖的操作系统没问题 → 排除基础设施，问题在程序自己。这是确定性排除，一条规则就能缩范围。表里 <code>(logs, k8s)</code>、<code>(k8s, metrics)</code>、<code>(db, k8s)</code>、<code>(middleware, k8s)</code>、<code>(upstream, k8s)</code> 都属于这一类——"X 层自己的问题，不是下面托着的 Y 层导致的"。</p>
+
+<p><strong>方向 B：下层异常、上层正常 → 推不出结论。</strong> 比如"K8s 异常但 logs 正常"：系统报错了但程序还在正常跑。可能的原因太多了——系统报的错影响的是别的程序、程序还没来得及感知、错误已发生但没传播到应用层。给不出一个确定的排查方向，所以表里没有 <code>(k8s, logs)</code> 这条规则。</p>
+
+<p><strong>唯一一个反向进表的例外</strong>：<code>metrics 异常 + k8s 正常 → 资源压力未导致 Pod 级故障</code>。这条能进表是因为它给了一个有用的<strong>边界判断</strong>——"资源紧张，但还没到影响服务的地步"，运维看到可以提前扩容，不需要紧急救火。</p>
+
+<p>本质就是一句话：<strong>地基坏了会影响房子，房子坏了不影响地基</strong>。所以"房子坏了但地基好的"能让你直接查房子结构（确定性强，收进表）；"地基坏了但房子没塌"解释太多（推不出结论，不收）。</p>
+
+<p>③ 命中就产出一条记录，汇进全局摘要。</p>
+
+<p>这版的<strong>优点</strong>很清楚：确定性强（同一输入永远同一输出）、零 token 成本、可解释（出问题一眼看到是哪条规则触发的）、和 SRE 手工排查的思路一致。</p>
+
+<p><strong>缺点</strong>也实在：规则靠人写，换一个业务场景或者加一个新的专科 Agent，规则要重写；只能判"异常 对比 正常"的极性，判不了异常程度；还有一个边界缺陷——<code>_get_conclusion_prefix</code> 按顺序扫证据、碰到第一条带前缀的就返回，如果某专科第一条证据正常、后面才异常，这个专科会被整体标成正常，对应的跨层矛盾就漏检了。好处是实现简单，代价是漏报偏保守。</p>
+
+<hr>
+
+<h5>第三版：APM 拓扑驱动（下一刀的方向）</h5>
+
+<p>有向规则表的根因问题是：规则是人猜出来的。12 条规则覆盖了 8 个层级之间的常见组合，但真实的故障传播路径比这复杂得多。</p>
+
+<p>举个例子：DB 慢查询 → 应用线程池耗尽 → 上游调用超时 → 网关 5xx。从表面现象看是"网关异常、DB 也异常"，但根因在 DB。这种多跳传播，静态规则表是覆盖不到的——它只做了两两比较，没做因果链推理。</p>
+
+<p>以华为云为例，APM 提供了<strong>服务拓扑图</strong>——自动发现服务间的调用关系，画出谁调谁、延迟多少、错误率多少。这是一张实时更新的有向图，天然带因果方向：A 调 B 延迟高，从调用方向上就能判断是 B 慢了导致 A 超时。加上 CCE 的 K8s 拓扑、DAS 的 DB 指标、VPC 的网络流日志——华为云的观测能力本身不差，缺的不是数据，是把数据拼成推理引擎那一步。</p>
+
+<p>但云厂商给的是<strong>观测数据</strong>（谁调谁、延迟多少、资源怎么挂的），不是可以直接用来推理的<strong>因果图</strong>。中间差了三步：</p>
+
+<ol>
+  <li><strong>方向标注</strong>：A 调 B 延迟高，是 A 的问题还是 B 的问题？拓扑图只告诉你"有调用关系"，不告诉你谁是因谁是果。这需要叠加时序——先异常的节点大概率是因。</li>
+  <li><strong>跨产品合图</strong>：K8s 拓扑在 CCE 控制台、DB 拓扑在 DAS 控制台、网络拓扑在 VPC 控制台——三张图没有自动合图服务，要自己拉到一起做数据融合。</li>
+  <li><strong>实时性对齐</strong>：资源拓扑是小时级快照，服务拓扑是分钟级，告警是秒级。不同时间粒度的数据放在一起比，时序对齐本身就是个脏活。</li>
+</ol>
+
+<p>实操上，做到第三版的团队走的路线是：<strong>云厂商 API 拉原料（拓扑 + 指标 + 日志）→ 自建因果图引擎（拼图 + 方向标注 + 时序对齐）→ 故障定位（规则匹配 + LLM 长尾兜底）</strong>。云厂商给原料，因果图和推理引擎自己搭。</p>
+
+<p>OpsPilot 当前的架构里，这版的接口已经埋好了——仲裁的矛盾分支读的是 <code>contradicting_evidence_ids</code>，不管是规则表产出还是拓扑引擎产出，只要灌进这个字段，裁决逻辑一行不改。信号灌装这一步是有意留的下一刀：先把核心骨架焊死、能独立验证，数据源升级是增量替换，不动骨架。</p>
+
+<h4 id="35-诊断">3.5 诊断：下根因假设（<code>__init__.py:895</code>）</h4>
+
+<p>综合证据+记忆，出排好序的 <code>root_cause_candidates</code>（hypothesis + confidence + <code>contradicting_evidence_ids=[]</code> 预留接口）。</p>
+
+<h4 id="36-仲裁">3.6 仲裁：4 路裁决 + 回退深度</h4>
+
+<p>仲裁自己不打分，直接读上游聚合算好的 <code>evidence_quality_score</code> + 诊断出的候选，只拿分和矛盾信号做裁决。裁决严格按优先级短路（<code>__init__.py:1109+</code>）：</p>
+
+<pre>
+loop_count >= 2         → 转人工     保险丝，不再裁决，候选置信度压到 ≤0.5
+有矛盾候选              → 矛盾       策略已就位，信号灌装后才会触发
+quality < 0.4 或缺≥2类  → 证据不足
+quality < 0.3 且证据<2   → 重排计划
+兜底                    → 放行</pre>
+
+<p>裁决 → 跳转的回退深度（<code>builder.py:115</code> <code>_route_after_critic</code>）：</p>
+
+<table>
+  <tr><th>裁决</th><th>跳转目标</th><th>回退深度</th></tr>
+  <tr><td>证据不足</td><td>回并行取证</td><td>退一步（计划不变，再取一轮证）</td></tr>
+  <tr><td>重排计划 / 矛盾</td><td>回计划</td><td>退两步（重做调查计划）</td></tr>
+  <tr><td>放行</td><td>修复</td><td>前进</td></tr>
+  <tr><td>转人工</td><td>复盘</td><td>收尾转人工</td></tr>
+</table>
+
+<p><strong>为什么不用投票</strong>：这些专科 Agent 分头取证、只读、不抢排他资源，不需要乐观锁/先到先得那套。真正会冲突的只有结论冲突，退回重查就行。放行不计数，只有重查类裁决（证据不足 / 重排计划 / 矛盾）才给 loop_count +1。</p>
+
+<h4 id="37-路由">3.7 路由：回路设计</h4>
+
+<p>放行 → 修复；证据不足 → 退一步回并行取证；重排计划/矛盾 → 退两步回计划；转人工 → 复盘。证据不硬，宁可绕回去再查也不急着下结论。</p>
+
+<h3 id="4-处置段">4 处置段：出方案 → 闸门 → 审批 → 执行 → 验真</h3>
+
+<pre>
+修复     【吃】候选,证据,ticket →【吐】remediation_plan
+风险闸门 【吃】remediation_plan,ticket,候选 →【吐】risk_decision
+审批中断 【吃】remediation_plan →【吐】pending_approval（图挂起→结束）
+执行     【吃】remediation_plan/approval_result →【吐】action_results
+验证     【吃】action_results →【吐】verify_decision（并 append 验证证据）</pre>
+
+<ul>
+  <li><strong>修复（<code>__init__.py:1136</code>）出方案（当前单方案）</strong>：拿最高候选+证据规则化映射动作：判发布回归且有部署证据 → <code>回滚</code>(需审批)；否则兜底 <code>重启</code>（低风险）。<br>
+  诚实边界：只出单方案、没有多方案择优。真正的"方案评委"（多方案按恢复速度/影响面/回滚成本加权打分 + 预演模拟）是缺口，要补就在这加 <code>_score_remediation()</code>。</li>
+  <li><strong>风险闸门（<code>__init__.py:1208</code>）多信号闸门</strong>：把动作风险 + severity + env + requires_immediate_human + 诊断置信度 + 循环保护 + 能力预检揉成 4 选 1：仅低风险(放行) / 需审批(卡审批) / 阻断(能力预检失败拦死) / 转人工。</li>
+  <li><strong>审批中断（<code>__init__.py:1321</code>）HITL 中断</strong>：建 <code>pending_approval</code>，图挂起 → 结束，run 停半途等人。人 <code>POST /approvals/{id}/decision</code> 点头后 <code>POST /runs/{id}/resume</code> 从断点续跑。细节见姊妹篇「dispatcher-resume」。</li>
+  <li><strong>执行（<code>__init__.py:1477</code>）受控执行</strong>：<code>ControlledExecutor</code> 幂等 + 审计——同动作重复续跑不执行两次。</li>
+  <li><strong>验证（<code>__init__.py:1596</code>）验真</strong>：执行完不信"我以为好了"，再取一轮验证证据（查 k8s deployment status / 指标回落），3 选 1：成功 / 可重试 / 严重故障。可重试 → 回执行重试（≤2 次）；耗尽/严重故障 → 复盘。</li>
+</ul>
+
+<h3 id="5-收尾段">5 收尾段：成败都写复盘（<code>rca_node</code>，<code>__init__.py:1772</code>）</h3>
+
+<p><code>【吃】几乎全 state →【吐】rca_report / final_outcome / status=完成|转人工</code></p>
+
+<p>不管 成功 / 失败 / 转人工 都进复盘出复盘报告：先定运行结果，再定根因状态（最高置信度 ≥0.7 算确认、否则未知，转人工一律未知），报告 + 证据归档对象存储。</p>
+
+<p>为什么失败也写：复盘是给人看的交接物 + 数据飞轮原料（失败案例进金标集防回退）。</p>
+
+<h3 id="横切">横切：这条旅程怎么被实时看见</h3>
+
+<p>每个节点被 <code>_wrap_with_events</code>（<code>builder.py:25</code>）包一层，进节点发 <code>NODE_STARTED</code>、抛异常发 <code>NODE_FAILED</code>，事件落 DB 带序号。前端 SSE 实时渲染步骤条走到哪、断线凭 Last-Event-ID 从断点补发。细节见姊妹篇「SSE 断线续传」。</p>
+
+<hr>
+
+<h2 id="面试问答底稿">面试问答底稿</h2>
+
+<p><strong>Q：把你这个 Agent 从头到尾讲一遍。</strong></p>
+
+<p>用 30 秒开口起手（5 段），然后讲三个设计点：①全程条件路由可退回重来；②高危 HITL 中断、人不点头不动手；③仲裁先过证据门控才进处置。每段留一个钩子等面试官往里钻。</p>
+
+<hr>
+
+<p><strong>Q：多 Agent 结论冲突怎么解？</strong></p>
+
+<p>通用做法是仲裁/投票/角色优先级，单 Agent 内部用反思机制对自己的输出做批判再改。回 OpsPilot——专科 Agent 分头取证、只读、互不抢资源，没有抢资源的硬冲突，只有结论冲突的软冲突。不投票：仲裁做质量门控 + 矛盾检测，矛盾优先级最高、命中就退回计划重做调查计划；同一冲突转 2 圈没解决就转人工，同时把候选根因置信度压到 ≤0.5 防误导。</p>
+
+<p>诚实边界：矛盾检测这条线是有意做的接口先行——跨层差分表已经在算了、产出观测信号了，仲裁策略和数据契约也都就位，只差把信号晋升到仲裁读的候选字段。所以矛盾裁决当前不在真实链路触发，这是我清楚并且有意留的下一刀。被追问"那不就是没做完"，答："核心策略和契约先落地、信号灌装放下一刀，仲裁逻辑就能独立验证了。要点亮就差把规则表结果映射进 <code>contradicting_evidence_ids</code> 这一步。"</p>
+
+<hr>
+
+<p><strong>Q：仲裁是怎么打这个质量分的？</strong></p>
+
+<p>通用做法是置信度加权 + 覆盖度/完整度惩罚。项目里做了打分与决策解耦——会计算 <code>avg × penalty × coverage</code>，仲裁只拿这个分做 4 路裁决，换公式不碰决策。置信度 <code>min(_, 0.9)</code> 封顶防自吹，降级结论 ×0.5，覆盖度按"8 个专科到齐"归一逼着证据收全。</p>
+
+<p>诚实边界：这是只读分析得出的理解，没动过代码。评分阈值 0.4/0.3 是否合理，还没用离线评测验证过。</p>
+
+<hr>
+
+<p><strong>Q：这算"领导对多个方案择优"吗？</strong></p>
+
+<p>不算。我比喻里的方案评委角色——按统一评分给多个修复方案打分、分差近就预演模拟——现在的仲裁不干这个。它只评"证据够不够下结论"，不评"哪个修复方案更好"。修复出单方案、风险闸门只做通过/不通过。真正的方案择优是缺口，要补就在修复出多方案 + <code>_score_remediation()</code>（按恢复速度/影响面/回滚成本加权），让仲裁或新 arbitrer 节点变成方案评委。</p>
+
+<hr>
+
+<p><strong>Q：为什么搞 13 个节点，一个 ReAct 循环不行吗？</strong></p>
+
+<p>浅层智能体（裸工具循环）在"高风险、要可控、要可解释、要能中途叫人"的场合会失控。OpsPilot 是生产运维，错一步搞大故障，所以宁可重：取证和处置间硬插仲裁门控、处置里硬插审批中断、执行后硬插验真。这些"多余"节点本质都是闸门，拿编排复杂度换"不闯祸"，每个职责单一、能独立测。</p>
+
+<hr>
+
+<p><strong>Q：哪几段是缺口 / 没真跑通？</strong></p>
+
+<p>三处，都清楚且有意留：①入口自然语言抽取没做，但插入点明确、契约现成（1）；②矛盾裁决——检测在算、信号在灌，但没晋升到仲裁读的候选字段，那条分支当前不触发（3.4）；③方案择优——只出单方案，没有方案评委（4）。共同点：核心骨架和契约先焊死、能独立验证，适配/增强层留作下一刀，不是没做完。</p>
+
+<hr>
+
+<h2 id="附录A">附录 A：核心数据结构字段中英对照</h2>
+
+<p>记构词法比记字段省力：<code>*_id</code> = 唯一标识；<code>*_ids</code> = 引用别物的 ID 列表；<code>*_score</code>/<code>confidence</code> = 0~1 的分；<code>requires_*</code> = 布尔闸门；<code>*_status</code>/<code>*_decision</code>/<code>*_type</code> = 枚举。</p>
+
+<p><strong>IncidentTicket</strong>（入口产物）<code>models/incident.py</code><br>
+<code>ticket_id</code> 工单 ID｜<code>title</code>/<code>description</code> 标题/描述｜<code>service</code> 受影响服务｜<code>env</code> 环境｜<code>severity</code> 级别(P1~P4)｜<code>time_range</code> 排查时间窗｜<code>source</code> 来源｜<code>metadata</code> 附加元数据</p>
+
+<p><strong>TriageResult</strong>（定性产物）<code>models/triage.py</code><br>
+<code>incident_type</code> 故障类型｜<code>severity</code> 调整后级别｜<code>suspected_services</code> 怀疑服务列表｜<code>suggested_time_window</code> 推荐时间窗｜<code>requires_immediate_human</code> 是否需立即人工(漂到风险闸门)｜<code>rationale</code> 判断理由</p>
+
+<p><strong>EvidenceItem</strong>（取证产物，全程累加）<code>models/evidence.py</code><br>
+<code>evidence_id</code> 证据 ID｜<code>tool_name</code> 产出工具｜<code>category</code> 类别(logs/metrics/deployments/db/k8s/network/middleware/upstream/runbook/verification)｜<code>source_ref</code> 来源引用｜<code>summary</code> 摘要｜<code>raw_payload</code> 原始数据｜<code>confidence</code> 可信度 0~1(喂质量分)｜<code>freshness_score</code> 新鲜度｜<code>completeness_score</code> 完整度｜<code>tags</code>/<code>error_hint</code> 标签/错误提示</p>
+
+<p><strong>RootCauseCandidate</strong>（诊断产物）<code>models/root_cause.py</code><br>
+<code>candidate_id</code> 候选 ID｜<code>hypothesis</code> 根因假设｜<code>confidence</code> 置信度 0~1(仲裁/风险闸门/复盘都读)｜<code>incident_type</code> 封闭枚举分类(评测主指标)｜<code>supporting_evidence_ids</code> 支持证据｜<code>contradicting_evidence_ids</code> 反驳证据(矛盾裁决读它，待灌装)｜<code>next_checks</code> 后续检查建议</p>
+
+<p><strong>ActionSpec</strong>（最小执行单元）<code>models/action.py</code><br>
+<code>action_id</code> 动作 ID｜<code>action_type</code> 类型(重启/回滚/scale)｜<code>service</code>/<code>env</code> 目标服务/环境｜<code>params</code> 参数｜<code>risk_level</code> 风险等级(LOW/MED/HIGH/CRITICAL)｜<code>requires_approval</code> 是否需审批｜<code>idempotency_key</code> 幂等 Key｜<code>supporting_evidence_ids</code> 支撑证据｜<code>preconditions</code> 前置条件｜<code>verification_plan</code> 验证方案</p>
+
+<p><strong>RemediationPlan</strong>（修复方案）<code>models/remediation.py</code><br>
+<code>summary</code> 概述｜<code>actions</code> 动作列表(当前单方案)｜<code>expected_outcome</code> 期望效果｜<code>回滚_plan</code> 回滚步骤｜<code>risk_notes</code> 风险说明｜<code>human_checkpoints</code> 人工检查点</p>
+
+<p><strong>RcaReport</strong>（复盘报告）<code>models/rca.py</code><br>
+<code>report_markdown</code> 完整报告｜<code>root_cause</code> 根因描述｜<code>root_cause_status</code> 状态(CONFIRMED/SUSPECTED/UNKNOWN)｜<code>resolution</code> 解决步骤｜<code>prevention_items</code> 预防措施｜<code>confirmed_by_human</code> 是否人工确认｜<code>timeline_summary</code> 时间线｜<code>impact_assessment</code> 影响评估｜<code>supporting_evidence_ids</code>/<code>executed_action_ids</code> 用到证据/执行动作｜<code>automation_outcome</code> 自动化结果｜<code>manual_next_steps</code> 人工接管步骤｜<code>archive_ref</code> 归档位置(OSS)</p>
+
+<p>审批对：<strong>ApprovalRequest</strong>(<code>approval_id</code>/<code>run_id</code>/<code>action</code>/<code>reason</code>/<code>risk_level</code>/<code>evidence_refs</code>/<code>expected_impact</code>/<code>回滚_plan</code>) → 人点头回 <strong>ApprovalResult</strong>(<code>decision</code> approved/rejected/modified｜<code>approver</code>｜<code>comment</code>｜<code>created_at</code>)。</p>
+
+<hr>
+
+<h2 id="附录B">附录 B：关键文件速查</h2>
+
+<table>
+  <tr><th>关注点</th><th>file:line</th></tr>
+  <tr><td>入口三模式校验</td><td><code>api/incidents.py:193</code> <code>create_run</code> / <code>:195</code> 互斥校验</td></tr>
+  <tr><td>图构建 + 5 路由器</td><td><code>graph/builder.py</code>（<code>_route_after_critic:115</code> 等）</td></tr>
+  <tr><td>state 契约</td><td><code>graph/state.py:36</code> <code>IncidentAgentState</code></td></tr>
+  <tr><td>① 接入</td><td><code>graph/nodes/__init__.py:49</code></td></tr>
+  <tr><td>② 分诊 / 规则</td><td><code>__init__.py:191</code> / <code>_triage_by_rules:82</code></td></tr>
+  <tr><td>② 记忆检索</td><td><code>nodes/retrieve_memory.py</code></td></tr>
+  <tr><td>③ 计划</td><td><code>__init__.py:227</code></td></tr>
+  <tr><td>③ 并行取证</td><td><code>__init__.py:406</code>（v2 <code>_evidence_fanout_v2</code>）</td></tr>
+  <tr><td>③ 聚合（会计-打分+矛盾）</td><td><code>__init__.py:783</code></td></tr>
+  <tr><td>质量分三因子公式</td><td><code>nodes/aggregator.py:159</code> <code>_compute_weighted_quality</code></td></tr>
+  <tr><td>跨层差分定位表（12 条规则）</td><td><code>nodes/aggregator.py:15</code> <code>CONTRADICTION_RULES</code></td></tr>
+  <tr><td>健康极性贴标签</td><td><code>nodes/aggregator.py:125</code> <code>_get_conclusion_prefix</code></td></tr>
+  <tr><td>矛盾检测算法（纯函数）</td><td><code>nodes/aggregator.py:138</code> <code>_detect_cross_agent_contradictions</code></td></tr>
+  <tr><td>矛盾信号存 state（观测用）</td><td><code>__init__.py:866</code> <code>state["contradiction_signals"]</code></td></tr>
+  <tr><td>候选字段预留接口</td><td><code>__init__.py:1017/1046/1057</code> <code>contradicting_evidence_ids=[]</code></td></tr>
+  <tr><td>③ 诊断</td><td><code>__init__.py:895</code></td></tr>
+  <tr><td>③ 仲裁（门控-4 裁决）</td><td><code>__init__.py:1074</code> <code>critic_node</code></td></tr>
+  <tr><td>矛盾裁决判定</td><td><code>__init__.py:1110-1118</code></td></tr>
+  <tr><td>循环保护保险丝</td><td><code>__init__.py:1086</code></td></tr>
+  <tr><td>专科置信度封顶</td><td><code>nodes/specialist_agent.py:375</code> <code>min(llm_confidence_raw, 0.9)</code></td></tr>
+  <tr><td>④ 修复</td><td><code>__init__.py:1136</code></td></tr>
+  <tr><td>④ 风险闸门</td><td><code>__init__.py:1208</code></td></tr>
+  <tr><td>④ 审批中断</td><td><code>__init__.py:1321</code></td></tr>
+  <tr><td>④ 执行</td><td><code>__init__.py:1477</code></td></tr>
+  <tr><td>④ 验证</td><td><code>__init__.py:1596</code></td></tr>
+  <tr><td>⑤ 复盘</td><td><code>__init__.py:1772</code></td></tr>
+  <tr><td>节点事件包装</td><td><code>builder.py:25</code></td></tr>
+</table>
+
+<hr>
+
+<h2 id="姊妹篇导航">姊妹篇导航（被钻到哪段翻哪篇）</h2>
+
+<ul>
+  <li>定性段记忆检索（粗排+重排序+AB）→ <code>实战-2026-06-09-两阶段检索接入与AB归因.md</code></li>
+  <li>处置段审批中断/续跑 → <code>dispatcher-resume机制.md</code></li>
+  <li>全链可退回的路由 → <code>条件路由机制.md</code></li>
+  <li>全程可观测/断线续传 → <code>实战-2026-06-10-SSE断线续传机制.md</code></li>
+  <li>为什么是深度智能体 → <code>实战-2026-06-10-deepagents范式与项目对标.md</code></li>
+</ul>
+
+</main>
+
+</body>
+</html>

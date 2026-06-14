@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JitKnow - AI 智能知识库 | 企业级知识管理解决方案</title>
+  <meta name="description" content="JitKnow 是一款企业级AI智能知识库系统，提供RAG检索增强、智能客服、私有化部署等能力，助力企业构建专属知识中台。">
+  <meta name="keywords" content="AI知识库,企业知识管理,RAG,智能客服,私有化部署,知识中台,文档管理,AI助手">
+  
+  <!-- 微信二维码弹窗样式 -->
+  <style>
+    .wechat-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 9998;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+    .wechat-modal.show {
+      opacity: 1;
+      visibility: visible;
+    }
+    .wechat-modal-content {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: white;
+      border-radius: 20px;
+      padding: 32px;
+      z-index: 9999;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      text-align: center;
+      min-width: 320px;
+      max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    }
+    .wechat-modal.show .wechat-modal-content {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    .wechat-qrcode {
+      width: 200px;
+      height: 200px;
+      border-radius: 12px;
+      margin: 0 auto 16px;
+      object-fit: cover;
+    }
+    .wechat-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #F0F5FF;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .wechat-close:hover {
+      background: #E8ECFF;
+    }
+  </style>
+  
+  <!-- 微信二维码弹窗 - 联系销售 -->
+  <div id="wechatModal" class="wechat-modal">
+    <div class="wechat-modal-content">
+      <button class="wechat-close" onclick="closeWechatModal()">
+        <span class="iconify text-[#6C6F7D]" data-icon="solar:close-bold-duotone"></span>
+      </button>
+      <h3 class="text-xl font-bold text-[#151515] mb-2">扫码联系</h3>
+      <p class="text-[#6C6F7D] text-sm mb-4">添加微信，获取专属解决方案</p>
+      <img src="https://flowmix.turntip.cn/fm/static/my.8ee63da4.png" alt="微信二维码" class="wechat-qrcode">
+      <p class="text-sm text-[#6C6F7D] mt-4">微信：cxzk_168</p>
+    </div>
+  </div>
+  
+  <!-- 微信二维码弹窗 - 申请试用 -->
+  <div id="trialModal" class="wechat-modal">
+    <div class="wechat-modal-content">
+      <button class="wechat-close" onclick="closeTrialModal()">
+        <span class="iconify text-[#6C6F7D]" data-icon="solar:close-bold-duotone"></span>
+      </button>
+      <h3 class="text-xl font-bold text-[#151515] mb-2">申请试用</h3>
+      <p class="text-[#6C6F7D] text-sm mb-4">关注公众号加微信获取"试用"权益</p>
+      <img src="https://jitword.com/assets/media/wechat.png" alt="微信二维码" class="wechat-qrcode">
+      <p class="text-sm text-[#6C6F7D] mt-4">微信：cxzk_168</p>
+    </div>
+  </div>
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="JitKnow - AI 智能知识库">
+  <meta property="og:description" content="企业级AI智能知识库系统，助力企业构建专属知识中台">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://jitknow.com">
+  
+  <!-- Canonical -->
+  <link rel="canonical" href="https://jitknow.com">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/3/3.1.1/iconify.min.js"></script>
+  <link rel="stylesheet" href="./assets/css/common.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              DEFAULT: '#165DFF',
+              dark: '#044AE9',
+              light: '#F0F5FF'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    /* 全局样式 */
+    html {
+      scroll-behavior: smooth;
+    }
+    
+    /* 渐变文字 */
+    .text-gradient {
+      background: linear-gradient(135deg, #165DFF 0%, #044AE9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    /* 卡片悬浮效果 */
+    .card-hover {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-hover:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 40px rgba(22, 93, 255, 0.15);
+    }
+    
+    /* 按钮光效 */
+    .btn-glow {
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-glow::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s;
+    }
+    .btn-glow:hover::before {
+      left: 100%;
+    }
+    
+    /* 浮动动画 */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+    .animate-float {
+      animation: float 6s ease-in-out infinite;
+    }
+    .animate-float-delay {
+      animation: float 6s ease-in-out infinite;
+      animation-delay: 2s;
+    }
+    
+    /* 渐变流动 */
+    @keyframes gradient-flow {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .animate-gradient {
+      background-size: 200% 200%;
+      animation: gradient-flow 8s ease infinite;
+    }
+    
+    /* 淡入动画 */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .fade-in-up {
+      animation: fadeInUp 0.8s ease-out forwards;
+    }
+    
+    /* 导航栏滚动效果 */
+    .nav-scrolled {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* 架构图连线 */
+    .arch-line {
+      position: absolute;
+      background: linear-gradient(90deg, #165DFF, #044AE9);
+      opacity: 0.3;
+    }
+    
+    /* 移动端菜单 */
+    .mobile-menu {
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+    .mobile-menu.open {
+      transform: translateX(0);
+    }
+    
+    /* 特性卡片图标背景 */
+    .feature-icon-bg {
+      background: linear-gradient(135deg, rgba(22, 93, 255, 0.1) 0%, rgba(4, 74, 233, 0.05) 100%);
+    }
+    
+    /* 场景卡片渐变边框 */
+    .scene-card {
+      position: relative;
+      background: white;
+      border-radius: 16px;
+    }
+    .scene-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      padding: 1px;
+      background: linear-gradient(135deg, #165DFF, #044AE9);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .scene-card:hover::before {
+      opacity: 1;
+    }
+    
+    /* 定价卡片推荐标签 */
+    .pricing-popular {
+      position: relative;
+    }
+    .pricing-popular::before {
+      content: '推荐';
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #165DFF, #044AE9);
+      color: white;
+      padding: 4px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    /* 滚动显示动画 */
+    .scroll-reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.8s ease;
+    }
+    .scroll-reveal.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    /* 背景网格 */
+    .bg-grid {
+      background-image: 
+        linear-gradient(rgba(22, 93, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(22, 93, 255, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
+    
+    /* 光晕效果 */
+    .glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(22, 93, 255, 0.15) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="font-sans text-[#151515] bg-white">
+  
+  <!-- 导航栏 -->
+  <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16 lg:h-20">
+        <!-- Logo -->
+        <a href="#" class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-[#165DFF] to-[#044AE9] rounded-xl flex items-center justify-center">
+            <span class="iconify text-white text-xl" data-icon="solar:book-bookmark-bold-duotone"></span>
+          </div>
+          <span class="text-xl font-bold text-[#151515]">JitKnow</span>
+        </a>
+        
+        <!-- Desktop Nav -->
+        <div class="hidden lg:flex items-center space-x-8">
+          <a href="#features" class="text-[#6C6F7D] hover:text-[#165DFF] transition-colors font-medium">产品亮点</a>
+          <a href="#architecture" class="text-[#6C6F7D] hover:text-[#165DFF] transition-colors font-medium">架构设计</a>
+          <a href="#scenarios" class="text-[#6C6F7D] hover:text-[#165DFF] transition-colors font-medium">应用场景</a>
+          <a href="#deployment" class="text-[#6C6F7D] hover:text-[#165DFF] transition-colors font-medium">私有化部署</a>
+        </div>
+        
+        <!-- CTA Buttons -->
+        <div class="hidden lg:flex items-center space-x-4">
+          <a href="https://know.jitword.com/login" class="text-[#6C6F7D] hover:text-[#165DFF] transition-colors font-medium">登录</a>
+          <button onclick="openTrialModal()" class="px-5 py-2.5 bg-gradient-to-r from-[#165DFF] to-[#044AE9] text-white rounded-lg font-medium hover:shadow-lg hover:shadow-blue-200 transition-all btn-glow">
+            申请试用
+          </button>
+        </div>
+        
+        <!-- Mobile Menu Button -->
+        <button id="mobileMenuBtn" class="lg:hidden p-2 text-[#151515]">
+          <span class="iconify text-2xl" data-icon="solar:hamburger-menu-bold-duotone"></span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu fixed top-0 right-0 w-72 h-full bg-white shadow-2xl lg:hidden z-50">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-8">
+          <span class="text-lg font-bold">菜单</span>
+          <button id="closeMobileMenu" class="p-2">
+            <span class="iconify text-2xl" data-icon="solar:close-circle-bold-duotone"></span>
+          </button>
+        </div>
+        <div class="space-y-4">
+          <a href="#features" class="block py-3 text-[#151515] font-medium border-b border-[#E8ECFF]">产品亮点</a>
+          <a href="#architecture" class="block py-3 text-[#151515] font-medium border-b border-[#E8ECFF]">架构设计</a>
+          <a href="#scenarios" class="block py-3 text-[#151515] font-medium border-b border-[#E8ECFF]">应用场景</a>
+          <a href="#deployment" class="block py-3 text-[#151515] font-medium border-b border-[#E8ECFF]">私有化部署</a>
+          <div class="pt-4 space-y-3">
+            <a href="https://know.jitword.com/login" class="block w-full py-3 text-center text-[#6C6F7D] font-medium border border-[#E8ECFF] rounded-lg">登录</a>
+            <button onclick="openTrialModal()" class="block w-full py-3 text-center bg-gradient-to-r from-[#165DFF] to-[#044AE9] text-white font-medium rounded-lg">申请试用</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="relative min-h-screen flex items-center pt-20 overflow-hidden bg-[#F8FAFF]">
+    <!-- 背景装饰 -->
+    <div class="absolute inset-0 bg-grid"></div>
+    <div class="glow -top-40 -left-40"></div>
+    <div class="glow -bottom-40 -right-40"></div>
+    
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <div class="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+        <!-- 左侧内容 -->
+        <div class="fade-in-up">
+          <div class="inline-flex items-center space-x-2 px-4 py-2 bg-white rounded-full border border-[#E8ECFF] mb-6">
+            <span class="w-2 h-2 bg-[#10B981] rounded-full animate-pulse"></span>
+            <span class="text-sm text-[#6C6F7D]">企业级 AI 知识库解决方案</span>
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+            构建企业<br>
+            <span class="text-gradient">智能知识中台</span>
+          </h1>
+          
+          <p class="text-lg text-[#6C6F7D] mb-8 leading-relaxed max-w-xl">
+            JitKnow 是一款企业级 AI 智能知识库系统，基于 RAG 技术实现精准知识检索，支持私有化部署，助力企业高效管理和利用知识资产。
+          </p>
+          
+          <div class="flex flex-col sm:flex-row gap-4 mb-12">
+            <button onclick="openTrialModal()" class="px-8 py-4 bg-gradient-to-r from-[#165DFF] to-[#044AE9] text-white rounded-xl font-semibold text-center hover:shadow-xl hover:shadow-blue-200 transition-all btn-glow flex items-center justify-center space-x-2">
+              <span>申请试用</span>
+              <span class="iconify" data-icon="solar:arrow-right-bold-duotone"></span>
+            </button>
+            <a href="#architecture" class="px-8 py-4 bg-white text-[#151515] rounded-xl font-semibold text-center border border-[#E8ECFF] hover:border-[#165DFF] hover:text-[#165DFF] transition-all flex items-center justify-center space-x-2">
+              <span class="iconify" data-icon="solar:play-circle-bold-duotone"></span>
+              <span>了解架构</span>
+            </a>
+          </div>
+          
+          <!-- 数据统计 -->
+          <div class="grid grid-cols-3 gap-6">
+            <div>
+              <div class="text-2xl sm:text-3xl font-bold text-[#165DFF]">99%+</div>
+              <div class="text-sm text-[#6C6F7D]">检索准确率</div>
+            </div>
+            <div>
+              <div class="text-2xl sm:text-3xl font-bold text-[#165DFF]">10x</div>
+              <div class="text-sm text-[#6C6F7D]">效率提升</div>
+            </div>
+            <div>
+              <div class="text-2xl sm:text-3xl font-bold text-[#165DFF]">24/7</div>
+              <div class="text-sm text-[#6C6F7D]">智能服务</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 右侧视觉 -->
+        <div class="relative lg:h-[600px] flex items-center justify-center">
+          <!-- 主界面预览 -->
+          <div class="relative w-full max-w-lg animate-float">
+            <div class="bg-white rounded-2xl shadow-2xl shadow-blue-100 p-6 border border-[#E8ECFF]">
+              <!-- 模拟界面头部 -->
+              <div class="flex items-center space-x-2 mb-4 pb-4 border-b border-[#E8ECFF]">
+                <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+                <div class="w-3 h-3 rounded-full bg-green-400"></div>
+                <div class="flex-1 text-center text-sm text-[#6C6F7D]">JitKnow AI 助手</div>
+              </div>
+              
+              <!-- 动态对话内容 -->
+              <div id="chatContainer" class="space-y-4 min-h-[280px]">
+                <!-- 消息会通过JS动态插入 -->
+              </div>
+              
+              <!-- 输入框 -->
+              <div class="mt-4 pt-4 border-t border-[#E8ECFF]">
+                <div class="flex items-center space-x-3 bg-[#F8FAFF] rounded-xl px-4 py-3">
+                  <input id="chatInput" type="text" placeholder="输入您的问题..." class="flex-1 bg-transparent outline-none text-sm" readonly>
+                  <button id="sendBtn" class="w-8 h-8 bg-gradient-to-r from-[#165DFF] to-[#044AE9] rounded-lg flex items-center justify-center transition-all hover:scale-105">
+                    <span class="iconify text-white" data-icon="solar:arrow-up-bold-duotone"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 浮动元素 -->
+          <div class="absolute -top-4 -right-4 bg-white rounded-xl shadow-lg p-3 animate-float-delay hidden sm:block">
+            <div class="flex items-center space-x-2">
+              <span class="iconify text-[#10B981] text-xl" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-sm font-medium">文档解析完成</span>
+            </div>
+          </div>
+          
+          <div class="absolute -bottom-4 -left-4 bg-white rounded-xl shadow-lg p-3 animate-float hidden sm:block" style="animation-delay: 1s;">
+            <div class="flex items-center space-x-2">
+              <span class="iconify text-[#165DFF] text-xl" data-icon="solar:magic-stick-3-bold-duotone"></span>
+              <span class="text-sm font-medium">AI 生成中...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 产品亮点 -->
+  <section id="features" class="py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 scroll-reveal">
+        <span class="inline-block px-4 py-1.5 bg-[#F0F5FF] text-[#165DFF] rounded-full text-sm font-medium mb-4">产品亮点</span>
+        <h2 class="text-3xl sm:text-4xl font-bold mb-4">为什么选择 JitKnow</h2>
+        <p class="text-lg text-[#6C6F7D] max-w-2xl mx-auto">基于先进的 AI 技术，为企业提供全方位的知识管理解决方案</p>
+      </div>
+      
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- 亮点 1 -->
+        <div class="card-hover bg-white rounded-2xl p-8 border border-[#E8ECFF] scroll-reveal">
+          <div class="w-14 h-14 feature-icon-bg rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-[#165DFF] text-2xl" data-icon="solar:target-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">RAG 检索增强</h3>
+          <p class="text-[#6C6F7D] leading-relaxed">基于检索增强生成技术，实现精准的知识问答，回答准确率提升至 99% 以上，有效避免 AI 幻觉。</p>
+        </div>
+        
+        <!-- 亮点 2 -->
+        <div class="card-hover bg-white rounded-2xl p-8 border border-[#E8ECFF] scroll-reveal">
+          <div class="w-14 h-14 feature-icon-bg rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-[#8B5CF6] text-2xl" data-icon="solar:chat-round-dots-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">智能客服系统</h3>
+          <p class="text-[#6C6F7D] leading-relaxed">7×24 小时智能客服，支持多轮对话、意图识别，大幅降低人工客服成本，提升客户满意度。</p>
+        </div>
+        
+        <!-- 亮点 3 -->
+        <div class="card-hover bg-white rounded-2xl p-8 border border-[#E8ECFF] scroll-reveal">
+          <div class="w-14 h-14 feature-icon-bg rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-[#10B981] text-2xl" data-icon="solar:document-text-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">多格式文档支持</h3>
+          <p class="text-[#6C6F7D] leading-relaxed">支持 PDF、Word、Markdown、网页等 20+ 格式导入，自动解析结构化内容，构建统一知识库。</p>
+        </div>
+        
+        <!-- 亮点 4 -->
+        <div class="card-hover bg-white rounded-2xl p-8 border border-[#E8ECFF] scroll-reveal">
+          <div class="w-14 h-14 feature-icon-bg rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-[#F59E0B] text-2xl" data-icon="solar:users-group-rounded-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">团队协作</h3>
+          <p class="text-[#6C6F7D] leading-relaxed">支持多人实时协作编辑，细粒度权限管理，版本控制与历史回溯，让团队知识共享更高效。</p>
+        </div>
+        
+        <!-- 亮点 5 -->
+        <div class="card-hover bg-white rounded-2xl p-8 border border-[#E8ECFF] scroll-reveal">
+          <div class="w-14 h-14 feature-icon-bg rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-[#EC4899] text-2xl" data-icon="solar:shield-check-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">数据安全保障</h3>
+          <p class="text-[#6C6F7D] leading-relaxed">企业级数据加密，支持私有化部署，数据完全自主可控，满足金融、医疗等行业的合规要求。</p>
+        </div>
+        
+        <!-- 亮点 6 -->
+        <div class="card-hover bg-white rounded-2xl p-8 border border-[#E8ECFF] scroll-reveal">
+          <div class="w-14 h-14 feature-icon-bg rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-[#00C9A7] text-2xl" data-icon="solar:widget-5-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">开放 API</h3>
+          <p class="text-[#6C6F7D] leading-relaxed">提供完善的 API 接口和 SDK，轻松集成到企业现有系统，支持定制化开发与功能扩展。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 架构设计 -->
+  <section id="architecture" class="py-24 bg-[#F8FAFF] relative overflow-hidden">
+    <div class="absolute inset-0 bg-grid opacity-50"></div>
+    
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 scroll-reveal">
+        <span class="inline-block px-4 py-1.5 bg-white text-[#165DFF] rounded-full text-sm font-medium mb-4 border border-[#E8ECFF]">架构设计</span>
+        <h2 class="text-3xl sm:text-4xl font-bold mb-4">企业级技术架构</h2>
+        <p class="text-lg text-[#6C6F7D] max-w-2xl mx-auto">分层解耦的现代化架构设计，支持弹性扩展与高可用部署</p>
+      </div>
+      
+      <!-- 架构图 -->
+      <div class="bg-white rounded-3xl p-8 lg:p-12 shadow-xl shadow-blue-50 border border-[#E8ECFF] scroll-reveal">
+        <div class="grid lg:grid-cols-4 gap-6">
+          <!-- 接入层 -->
+          <div class="lg:col-span-4">
+            <div class="bg-gradient-to-r from-[#165DFF] to-[#044AE9] rounded-2xl p-6 text-white">
+              <div class="flex items-center space-x-3 mb-4">
+                <span class="iconify text-2xl" data-icon="solar:globe-bold-duotone"></span>
+                <h3 class="text-lg font-bold">接入层</h3>
+              </div>
+              <div class="grid sm:grid-cols-3 gap-4">
+                <div class="bg-white/10 backdrop-blur rounded-xl p-4">
+                  <div class="text-sm font-medium mb-1">Web 端</div>
+                  <div class="text-xs text-blue-100">响应式管理后台</div>
+                </div>
+                <div class="bg-white/10 backdrop-blur rounded-xl p-4">
+                  <div class="text-sm font-medium mb-1">移动端</div>
+                  <div class="text-xs text-blue-100">H5 / 小程序 / App</div>
+                </div>
+                <div class="bg-white/10 backdrop-blur rounded-xl p-4">
+                  <div class="text-sm font-medium mb-1">Open API</div>
+                  <div class="text-xs text-blue-100">RESTful / WebSocket</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 应用层 -->
+          <div class="lg:col-span-4">
+            <div class="bg-[#F0F5FF] rounded-2xl p-6 border border-[#E8ECFF]">
+              <div class="flex items-center space-x-3 mb-4">
+                <span class="iconify text-2xl text-[#165DFF]" data-icon="solar:layers-bold-duotone"></span>
+                <h3 class="text-lg font-bold text-[#151515]">应用层</h3>
+              </div>
+              <div class="grid sm:grid-cols-4 lg:grid-cols-8 gap-3">
+                <div class="bg-white rounded-xl p-3 border border-[#E8ECFF] text-center">
+                  <span class="iconify text-[#8B5CF6] text-xl mb-1" data-icon="solar:chat-round-dots-bold-duotone"></span>
+                  <div class="text-xs font-medium text-[#151515]">智能客服</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 border border-[#E8ECFF] text-center">
+                  <span class="iconify text-[#10B981] text-xl mb-1" data-icon="solar:magic-stick-3-bold-duotone"></span>
+                  <div class="text-xs font-medium text-[#151515]">AI 助手</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 border border-[#E8ECFF] text-center">
+                  <span class="iconify text-[#F59E0B] text-xl mb-1" data-icon="solar:document-text-bold-duotone"></span>
+                  <div class="text-xs font-medium text-[#151515]">知识管理</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 border border-[#E8ECFF] text-center">
+                  <span class="iconify text-[#EC4899] text-xl mb-1" data-icon="solar:tuning-2-bold-duotone"></span>
+                  <div class="text-xs font-medium text-[#151515]">场景引擎</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 border border-[#E8ECFF] text-center">
+                  <span class="iconify text-[#165DFF] text-xl mb-1" data-icon="solar:users-group-rounded-bold-duotone"></span>
+                  <div class="text-xs font-medium text-[#151515]">团队协作</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 border border-[#E8ECFF] text-center">
+                  <span class="iconify text-[#00C9A7] text-xl mb-1" data-icon="solar:chart-2-bold-duotone"></span>
+                  <div class="text-xs font-medium text-[#151515]">数据分析</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 border border-[#E8ECFF] text-center">
+                  <span class="iconify text-[#6366F1] text-xl mb-1" data-icon="solar:shield-check-bold-duotone"></span>
+                  <div class="text-xs font-medium text-[#151515]">权限管理</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 border border-[#E8ECFF] text-center">
+                  <span class="iconify text-[#FF6B6B] text-xl mb-1" data-icon="solar:widget-bold-duotone"></span>
+                  <div class="text-xs font-medium text-[#151515]">开放 API</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- AI 引擎层 -->
+          <div class="lg:col-span-2">
+            <div class="bg-gradient-to-br from-[#8B5CF6]/10 to-[#165DFF]/10 rounded-2xl p-6 border border-[#8B5CF6]/20 h-full">
+              <div class="flex items-center space-x-3 mb-4">
+                <span class="iconify text-2xl text-[#8B5CF6]" data-icon="solar:cpu-bold-duotone"></span>
+                <h3 class="text-lg font-bold text-[#151515]">AI 引擎层</h3>
+              </div>
+              <div class="space-y-2">
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#8B5CF6]" data-icon="solar:magic-stick-3-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">大语言模型 (LLM)</span>
+                </div>
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#165DFF]" data-icon="solar:target-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">RAG 检索引擎</span>
+                </div>
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#10B981]" data-icon="solar:scanner-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">Embedding 模型</span>
+                </div>
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#F59E0B]" data-icon="solar:document-convert-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">文档解析引擎</span>
+                </div>
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#EC4899]" data-icon="solar:dialog-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">意图识别引擎</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 数据层 -->
+          <div class="lg:col-span-2">
+            <div class="bg-gradient-to-br from-[#10B981]/10 to-[#00C9A7]/10 rounded-2xl p-6 border border-[#10B981]/20 h-full">
+              <div class="flex items-center space-x-3 mb-4">
+                <span class="iconify text-2xl text-[#10B981]" data-icon="solar:database-bold-duotone"></span>
+                <h3 class="text-lg font-bold text-[#151515]">数据层</h3>
+              </div>
+              <div class="space-y-2">
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#10B981]" data-icon="solar:folder-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">向量数据库</span>
+                </div>
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#165DFF]" data-icon="solar:document-text-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">文档存储</span>
+                </div>
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#F59E0B]" data-icon="solar:graph-new-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">知识图谱</span>
+                </div>
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#8B5CF6]" data-icon="solar:database-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">关系型数据库</span>
+                </div>
+                <div class="bg-white rounded-xl p-2.5 border border-[#E8ECFF] flex items-center space-x-3">
+                  <span class="iconify text-[#00C9A7]" data-icon="solar:server-bold-duotone"></span>
+                  <span class="text-sm text-[#151515]">缓存层 Redis</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 基础设施层 -->
+          <div class="lg:col-span-4">
+            <div class="bg-gradient-to-r from-[#151515] to-[#2D2D2D] rounded-2xl p-6 text-white">
+              <div class="flex items-center space-x-3 mb-4">
+                <span class="iconify text-2xl" data-icon="solar:server-square-bold-duotone"></span>
+                <h3 class="text-lg font-bold">基础设施层</h3>
+              </div>
+              <div class="grid sm:grid-cols-5 gap-3">
+                <div class="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+                  <span class="iconify text-xl mb-1" data-icon="solar:cloud-bold-duotone"></span>
+                  <div class="text-xs font-medium">容器编排</div>
+                  <div class="text-[10px] text-gray-400">Kubernetes</div>
+                </div>
+                <div class="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+                  <span class="iconify text-xl mb-1" data-icon="solar:shield-bold-duotone"></span>
+                  <div class="text-xs font-medium">负载均衡</div>
+                  <div class="text-[10px] text-gray-400">Nginx / Gateway</div>
+                </div>
+                <div class="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+                  <span class="iconify text-xl mb-1" data-icon="solar:lock-keyhole-bold-duotone"></span>
+                  <div class="text-xs font-medium">安全认证</div>
+                  <div class="text-[10px] text-gray-400">OAuth2 / SSO</div>
+                </div>
+                <div class="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+                  <span class="iconify text-xl mb-1" data-icon="solar:bell-bold-duotone"></span>
+                  <div class="text-xs font-medium">监控告警</div>
+                  <div class="text-[10px] text-gray-400">Prometheus</div>
+                </div>
+                <div class="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
+                  <span class="iconify text-xl mb-1" data-icon="solar:code-scan-bold-duotone"></span>
+                  <div class="text-xs font-medium">日志分析</div>
+                  <div class="text-[10px] text-gray-400">ELK Stack</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 应用场景 -->
+  <section id="scenarios" class="py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 scroll-reveal">
+        <span class="inline-block px-4 py-1.5 bg-[#F0F5FF] text-[#165DFF] rounded-full text-sm font-medium mb-4">应用场景</span>
+        <h2 class="text-3xl sm:text-4xl font-bold mb-4">多场景赋能企业</h2>
+        <p class="text-lg text-[#6C6F7D] max-w-2xl mx-auto">覆盖企业知识管理的全场景需求，助力数字化转型</p>
+      </div>
+      
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- 场景 1 -->
+        <div class="scene-card p-8 scroll-reveal">
+          <div class="w-14 h-14 bg-gradient-to-br from-[#165DFF] to-[#044AE9] rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-white text-2xl" data-icon="solar:headphones-round-sound-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">智能客服</h3>
+          <p class="text-[#6C6F7D] mb-4 leading-relaxed">基于知识库的智能问答，自动回复客户咨询，支持复杂多轮对话，7×24 小时在线服务。</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-[#F0F5FF] text-[#165DFF] rounded-full text-xs">自动回复</span>
+            <span class="px-3 py-1 bg-[#F0F5FF] text-[#165DFF] rounded-full text-xs">多轮对话</span>
+          </div>
+        </div>
+        
+        <!-- 场景 2 -->
+        <div class="scene-card p-8 scroll-reveal">
+          <div class="w-14 h-14 bg-gradient-to-br from-[#8B5CF6] to-[#A78BFA] rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-white text-2xl" data-icon="solar:notebook-bookmark-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">企业知识库</h3>
+          <p class="text-[#6C6F7D] mb-4 leading-relaxed">统一管理企业文档、制度、流程，支持全文检索与智能推荐，让知识触手可及。</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-purple-50 text-[#8B5CF6] rounded-full text-xs">全文检索</span>
+            <span class="px-3 py-1 bg-purple-50 text-[#8B5CF6] rounded-full text-xs">智能推荐</span>
+          </div>
+        </div>
+        
+        <!-- 场景 3 -->
+        <div class="scene-card p-8 scroll-reveal">
+          <div class="w-14 h-14 bg-gradient-to-br from-[#10B981] to-[#34D399] rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-white text-2xl" data-icon="solar:graduation-cap-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">培训学习</h3>
+          <p class="text-[#6C6F7D] mb-4 leading-relaxed">构建企业学习平台，AI 导师在线答疑，个性化学习路径推荐，提升员工技能。</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-green-50 text-[#10B981] rounded-full text-xs">AI 导师</span>
+            <span class="px-3 py-1 bg-green-50 text-[#10B981] rounded-full text-xs">学习路径</span>
+          </div>
+        </div>
+        
+        <!-- 场景 4 -->
+        <div class="scene-card p-8 scroll-reveal">
+          <div class="w-14 h-14 bg-gradient-to-br from-[#F59E0B] to-[#FF8E53] rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-white text-2xl" data-icon="solar:clipboard-check-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">合规管理</h3>
+          <p class="text-[#6C6F7D] mb-4 leading-relaxed">法规政策智能解读，合规风险自动预警，审计文档智能归档，满足监管要求。</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-orange-50 text-[#F59E0B] rounded-full text-xs">政策解读</span>
+            <span class="px-3 py-1 bg-orange-50 text-[#F59E0B] rounded-full text-xs">风险预警</span>
+          </div>
+        </div>
+        
+        <!-- 场景 5 -->
+        <div class="scene-card p-8 scroll-reveal">
+          <div class="w-14 h-14 bg-gradient-to-br from-[#EC4899] to-[#F472B6] rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-white text-2xl" data-icon="solar:code-scan-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">研发知识管理</h3>
+          <p class="text-[#6C6F7D] mb-4 leading-relaxed">技术文档集中管理，代码知识库构建，研发经验沉淀与传承，提升开发效率。</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-pink-50 text-[#EC4899] rounded-full text-xs">技术文档</span>
+            <span class="px-3 py-1 bg-pink-50 text-[#EC4899] rounded-full text-xs">代码库</span>
+          </div>
+        </div>
+        
+        <!-- 场景 6 -->
+        <div class="scene-card p-8 scroll-reveal">
+          <div class="w-14 h-14 bg-gradient-to-br from-[#00C9A7] to-[#00E5B8] rounded-2xl flex items-center justify-center mb-6">
+            <span class="iconify text-white text-2xl" data-icon="solar:case-round-bold-duotone"></span>
+          </div>
+          <h3 class="text-xl font-bold mb-3">销售赋能</h3>
+          <p class="text-[#6C6F7D] mb-4 leading-relaxed">产品知识快速查询，竞品分析智能生成，销售话术实时推荐，助力销售成交。</p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-teal-50 text-[#00C9A7] rounded-full text-xs">产品知识</span>
+            <span class="px-3 py-1 bg-teal-50 text-[#00C9A7] rounded-full text-xs">销售助手</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 私有化部署 -->
+  <section id="deployment" class="py-24 bg-[#F8FAFF] relative overflow-hidden">
+    <div class="absolute inset-0 bg-grid opacity-50"></div>
+    
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16 scroll-reveal">
+        <span class="inline-block px-4 py-1.5 bg-white text-[#165DFF] rounded-full text-sm font-medium mb-4 border border-[#E8ECFF]">私有化部署</span>
+        <h2 class="text-3xl sm:text-4xl font-bold mb-4">灵活的部署方案</h2>
+        <p class="text-lg text-[#6C6F7D] max-w-2xl mx-auto">根据企业规模和需求，选择最适合的部署方式</p>
+      </div>
+      
+      <div class="grid lg:grid-cols-3 gap-8">
+        <!-- 订阅制 -->
+        <div class="bg-white rounded-3xl p-8 border border-[#E8ECFF] scroll-reveal">
+          <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-[#F0F5FF] rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <span class="iconify text-[#165DFF] text-3xl" data-icon="solar:cloud-bold-duotone"></span>
+            </div>
+            <h3 class="text-2xl font-bold mb-2">订阅制 SaaS</h3>
+            <p class="text-[#6C6F7D]">开箱即用，按需付费</p>
+          </div>
+          
+          <div class="text-center mb-8">
+            <span class="text-4xl font-bold">¥99</span>
+            <span class="text-[#6C6F7D]">/人/月起</span>
+          </div>
+          
+          <ul class="space-y-4 mb-8">
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">云端托管，免运维</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">自动更新，持续迭代</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">弹性扩容，按需付费</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">标准技术支持</span>
+            </li>
+          </ul>
+          
+          <button onclick="openWechatModal()" class="block w-full py-4 text-center border-2 border-[#165DFF] text-[#165DFF] rounded-xl font-semibold hover:bg-[#165DFF] hover:text-white transition-all">
+            立即试用
+          </button>
+        </div>
+        
+        <!-- 企业部署 -->
+        <div class="pricing-popular bg-white rounded-3xl p-8 border-2 border-[#165DFF] shadow-xl shadow-blue-100 scroll-reveal">
+          <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-gradient-to-br from-[#165DFF] to-[#044AE9] rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <span class="iconify text-white text-3xl" data-icon="solar:server-bold-duotone"></span>
+            </div>
+            <h3 class="text-2xl font-bold mb-2">企业私有化部署</h3>
+            <p class="text-[#6C6F7D]">数据自主，安全可控</p>
+          </div>
+          
+          <div class="text-center mb-8">
+            <span class="text-4xl font-bold">定制报价</span>
+          </div>
+          
+          <ul class="space-y-4 mb-8">
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">本地/私有云部署</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">数据完全自主可控</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">定制化功能开发</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">专属技术支持团队</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">SLA 服务保障</span>
+            </li>
+          </ul>
+          
+          <button onclick="openWechatModal()" class="block w-full py-4 text-center bg-gradient-to-r from-[#165DFF] to-[#044AE9] text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-200 transition-all btn-glow">
+            联系咨询
+          </button>
+        </div>
+        
+        <!-- 定制服务 -->
+        <div class="bg-white rounded-3xl p-8 border border-[#E8ECFF] scroll-reveal">
+          <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-gradient-to-br from-[#8B5CF6] to-[#A78BFA] rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <span class="iconify text-white text-3xl" data-icon="solar:settings-bold-duotone"></span>
+            </div>
+            <h3 class="text-2xl font-bold mb-2">企业定制服务</h3>
+            <p class="text-[#6C6F7D]">深度定制，专属方案</p>
+          </div>
+          
+          <div class="text-center mb-8">
+            <span class="text-4xl font-bold">按需定制</span>
+          </div>
+          
+          <ul class="space-y-4 mb-8">
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">行业解决方案定制</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">专属模型训练</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">系统集成对接</span>
+            </li>
+            <li class="flex items-center space-x-3">
+              <span class="iconify text-[#10B981]" data-icon="solar:check-circle-bold-duotone"></span>
+              <span class="text-[#151515]">驻场实施服务</span>
+            </li>
+          </ul>
+          
+          <button onclick="openWechatModal()" class="block w-full py-4 text-center border-2 border-[#8B5CF6] text-[#8B5CF6] rounded-xl font-semibold hover:bg-[#8B5CF6] hover:text-white transition-all">
+            预约咨询
+          </button>
+        </div>
+      </div>
+      
+      <!-- 部署优势 -->
+      <div class="mt-16 grid sm:grid-cols-2 lg:grid-cols-4 gap-6 scroll-reveal">
+        <div class="flex items-center space-x-4 bg-white rounded-xl p-4 border border-[#E8ECFF]">
+          <div class="w-12 h-12 bg-[#F0F5FF] rounded-xl flex items-center justify-center flex-shrink-0">
+            <span class="iconify text-[#165DFF] text-xl" data-icon="solar:shield-check-bold-duotone"></span>
+          </div>
+          <div>
+            <div class="font-semibold text-[#151515]">数据安全</div>
+            <div class="text-sm text-[#6C6F7D]">企业级加密</div>
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-4 bg-white rounded-xl p-4 border border-[#E8ECFF]">
+          <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <span class="iconify text-[#10B981] text-xl" data-icon="solar:clock-circle-bold-duotone"></span>
+          </div>
+          <div>
+            <div class="font-semibold text-[#151515]">快速部署</div>
+            <div class="text-sm text-[#6C6F7D]">小时级上线</div>
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-4 bg-white rounded-xl p-4 border border-[#E8ECFF]">
+          <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <span class="iconify text-[#8B5CF6] text-xl" data-icon="solar:graph-up-bold-duotone"></span>
+          </div>
+          <div>
+            <div class="font-semibold text-[#151515]">弹性扩展</div>
+            <div class="text-sm text-[#6C6F7D]">按需扩容</div>
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-4 bg-white rounded-xl p-4 border border-[#E8ECFF]">
+          <div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <span class="iconify text-[#F59E0B] text-xl" data-icon="solar:headphones-round-sound-bold-duotone"></span>
+          </div>
+          <div>
+            <div class="font-semibold text-[#151515]">专属支持</div>
+            <div class="text-sm text-[#6C6F7D]">7×24 服务</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section id="contact" class="py-24 bg-white">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center scroll-reveal">
+      <h2 class="text-3xl sm:text-4xl font-bold mb-4">开启企业知识管理新时代</h2>
+      <p class="text-lg text-[#6C6F7D] mb-8">立即体验 JitKnow，让 AI 助力企业知识资产价值最大化</p>
+      
+      <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+        <button onclick="openTrialModal()" class="px-8 py-4 bg-gradient-to-r from-[#165DFF] to-[#044AE9] text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-blue-200 transition-all btn-glow flex items-center justify-center space-x-2">
+          <span>申请试用</span>
+          <span class="iconify" data-icon="solar:arrow-right-bold-duotone"></span>
+        </button>
+        <button onclick="openWechatModal()" class="px-8 py-4 bg-white text-[#151515] rounded-xl font-semibold border border-[#E8ECFF] hover:border-[#165DFF] hover:text-[#165DFF] transition-all flex items-center justify-center space-x-2">
+          <span class="iconify" data-icon="solar:letter-bold-duotone"></span>
+          <span>联系销售</span>
+        </button>
+      </div>
+      
+      <!-- 联系方式 -->
+      <div class="grid sm:grid-cols-3 gap-6 text-left">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-[#F0F5FF] rounded-lg flex items-center justify-center">
+            <span class="iconify text-[#165DFF]" data-icon="solar:letter-bold-duotone"></span>
+          </div>
+          <div>
+            <div class="text-sm text-[#6C6F7D]">邮箱</div>
+            <div class="font-medium">flowmix@163.com</div>
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-[#F0F5FF] rounded-lg flex items-center justify-center">
+            <span class="iconify text-[#165DFF]" data-icon="solar:chat-round-dots-bold-duotone"></span>
+          </div>
+          <div>
+            <div class="text-sm text-[#6C6F7D]">微信</div>
+            <div class="font-medium">cxzk_168</div>
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-[#F0F5FF] rounded-lg flex items-center justify-center">
+            <span class="iconify text-[#165DFF]" data-icon="solar:map-point-bold-duotone"></span>
+          </div>
+          <div>
+            <div class="text-sm text-[#6C6F7D]">地址</div>
+            <div class="font-medium">重庆市渝北区</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-[#151515] text-white py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+        <!-- Logo & Description -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-[#165DFF] to-[#044AE9] rounded-xl flex items-center justify-center">
+            <span class="iconify text-white text-xl" data-icon="solar:book-bookmark-bold-duotone"></span>
+          </div>
+          <span class="text-xl font-bold">JitKnow</span>
+        </div>
+        
+        <!-- Quick Links -->
+        <div class="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-400">
+          <a href="#features" class="hover:text-white transition-colors">产品亮点</a>
+          <a href="#architecture" class="hover:text-white transition-colors">架构设计</a>
+          <a href="#scenarios" class="hover:text-white transition-colors">应用场景</a>
+          <a href="#deployment" class="hover:text-white transition-colors">私有化部署</a>
+          <a href="#contact" class="hover:text-white transition-colors">联系我们</a>
+        </div>
+      </div>
+      
+      <!-- Bottom -->
+      <div class="pt-8 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="text-sm text-gray-400">
+          © 2026 JitKnow. All rights reserved. 重庆橙讯智科科技有限公司
+        </div>
+        <div class="flex items-center space-x-4 text-sm text-gray-400">
+          <a href="./pages/privacy.html" class="hover:text-white transition-colors">隐私政策</a>
+          <span class="text-gray-600">|</span>
+          <a href="./pages/terms.html" class="hover:text-white transition-colors">服务条款</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // 导航栏滚动效果
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) {
+        navbar.classList.add('nav-scrolled');
+      } else {
+        navbar.classList.remove('nav-scrolled');
+      }
+    });
+    
+    // 移动端菜单
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const closeMobileMenu = document.getElementById('closeMobileMenu');
+    
+    mobileMenuBtn.addEventListener('click', () => {
+      mobileMenu.classList.add('open');
+    });
+    
+    closeMobileMenu.addEventListener('click', () => {
+      mobileMenu.classList.remove('open');
+    });
+    
+    // 点击菜单链接后关闭菜单
+    mobileMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        mobileMenu.classList.remove('open');
+      });
+    });
+    
+    // 滚动显示动画
+    const scrollRevealElements = document.querySelectorAll('.scroll-reveal');
+    
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry, index) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => {
+            entry.target.classList.add('revealed');
+          }, index * 100);
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    });
+    
+    scrollRevealElements.forEach(el => {
+      revealObserver.observe(el);
+    });
+    
+    // 平滑滚动
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+    
+    // 动态对话演示
+    const chatContainer = document.getElementById('chatContainer');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    
+    // 对话脚本
+    const chatScript = [
+      {
+        type: 'ai',
+        content: '您好！我是 JitKnow AI 助手，有什么可以帮您的吗？',
+        delay: 500
+      },
+      {
+        type: 'user',
+        content: '请帮我总结一下产品需求文档的核心要点',
+        delay: 1500
+      },
+      {
+        type: 'ai',
+        content: '根据您的文档，核心要点如下：',
+        hasList: true,
+        listItems: ['目标用户：企业级客户', '核心功能：AI 知识检索', '技术架构：RAG + LLM'],
+        delay: 3000
+      },
+      {
+        type: 'user',
+        content: '这个系统支持私有化部署吗？',
+        delay: 5500
+      },
+      {
+        type: 'ai',
+        content: '是的，JitKnow 支持多种部署方式：',
+        hasList: true,
+        listItems: ['SaaS 云端订阅制', '企业私有化部署', '混合云部署方案'],
+        delay: 7500
+      }
+    ];
+    
+    let currentMessageIndex = 0;
+    let isTyping = false;
+    
+    // 创建 AI 消息
+    function createAIMessage(content, hasList = false, listItems = []) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex items-start space-x-3 opacity-0 transform translate-y-4 transition-all duration-500';
+      
+      let listHtml = '';
+      if (hasList && listItems.length > 0) {
+        listHtml = `<div class="space-y-1.5 mt-2">${listItems.map(item => `
+          <div class="flex items-center space-x-2 text-sm text-[#6C6F7D]">
+            <span class="w-1.5 h-1.5 bg-[#165DFF] rounded-full"></span>
+            <span>${item}</span>
+          </div>
+        `).join('')}</div>`;
+      }
+      
+      wrapper.innerHTML = `
+        <div class="w-8 h-8 bg-gradient-to-br from-[#165DFF] to-[#044AE9] rounded-lg flex items-center justify-center flex-shrink-0">
+          <span class="iconify text-white text-sm" data-icon="solar:book-bookmark-bold-duotone"></span>
+        </div>
+        <div class="bg-[#F0F5FF] rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
+          <p class="text-sm text-[#151515]">${content}</p>
+          ${listHtml}
+        </div>
+      `;
+      
+      return wrapper;
+    }
+    
+    // 创建用户消息
+    function createUserMessage(content) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex items-start space-x-3 justify-end opacity-0 transform translate-y-4 transition-all duration-500';
+      
+      wrapper.innerHTML = `
+        <div class="bg-gradient-to-r from-[#165DFF] to-[#044AE9] rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
+          <p class="text-sm text-white">${content}</p>
+        </div>
+        <div class="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+          <span class="iconify text-gray-600 text-sm" data-icon="solar:user-bold-duotone"></span>
+        </div>
+      `;
+      
+      return wrapper;
+    }
+    
+    // 创建正在输入指示器
+    function createTypingIndicator() {
+      const wrapper = document.createElement('div');
+      wrapper.id = 'typingIndicator';
+      wrapper.className = 'flex items-start space-x-3';
+      wrapper.innerHTML = `
+        <div class="w-8 h-8 bg-gradient-to-br from-[#165DFF] to-[#044AE9] rounded-lg flex items-center justify-center flex-shrink-0">
+          <span class="iconify text-white text-sm" data-icon="solar:book-bookmark-bold-duotone"></span>
+        </div>
+        <div class="bg-[#F0F5FF] rounded-2xl rounded-tl-sm px-4 py-3">
+          <div class="flex space-x-1">
+            <span class="w-2 h-2 bg-[#165DFF] rounded-full animate-bounce" style="animation-delay: 0s;"></span>
+            <span class="w-2 h-2 bg-[#165DFF] rounded-full animate-bounce" style="animation-delay: 0.2s;"></span>
+            <span class="w-2 h-2 bg-[#165DFF] rounded-full animate-bounce" style="animation-delay: 0.4s;"></span>
+          </div>
+        </div>
+      `;
+      return wrapper;
+    }
+    
+    // 显示正在输入
+    function showTyping() {
+      if (document.getElementById('typingIndicator')) return;
+      const indicator = createTypingIndicator();
+      chatContainer.appendChild(indicator);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      isTyping = true;
+    }
+    
+    // 隐藏正在输入
+    function hideTyping() {
+      const indicator = document.getElementById('typingIndicator');
+      if (indicator) {
+        indicator.remove();
+      }
+      isTyping = false;
+    }
+    
+    // 添加消息到聊天
+    function addMessage(message) {
+      hideTyping();
+      
+      let msgElement;
+      if (message.type === 'ai') {
+        msgElement = createAIMessage(message.content, message.hasList, message.listItems);
+      } else {
+        msgElement = createUserMessage(message.content);
+      }
+      
+      chatContainer.appendChild(msgElement);
+      
+      // 触发动画
+      requestAnimationFrame(() => {
+        msgElement.classList.remove('opacity-0', 'translate-y-4');
+      });
+      
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      
+      // 如果是 AI 消息，显示输入指示器
+      if (message.type === 'ai' && currentMessageIndex < chatScript.length - 1) {
+        setTimeout(() => {
+          showTyping();
+        }, 800);
+      }
+    }
+    
+    // 运行对话脚本
+    function runChatScript() {
+      if (currentMessageIndex >= chatScript.length) {
+        // 对话结束，重新开始
+        setTimeout(() => {
+          chatContainer.innerHTML = '';
+          currentMessageIndex = 0;
+          runChatScript();
+        }, 5000);
+        return;
+      }
+      
+      const message = chatScript[currentMessageIndex];
+      
+      // 如果是 AI 消息，先显示输入指示器
+      if (message.type === 'ai') {
+        showTyping();
+      }
+      
+      setTimeout(() => {
+        addMessage(message);
+        currentMessageIndex++;
+        
+        // 继续下一条
+        if (currentMessageIndex < chatScript.length) {
+          const nextDelay = chatScript[currentMessageIndex].delay - message.delay;
+          setTimeout(runChatScript, nextDelay);
+        } else {
+          // 对话结束，重新开始
+          setTimeout(() => {
+            chatContainer.innerHTML = '';
+            currentMessageIndex = 0;
+            runChatScript();
+          }, 5000);
+        }
+      }, message.type === 'ai' ? 1000 : 0);
+    }
+    
+    // 启动对话动画
+    setTimeout(runChatScript, 1000);
+    
+    // 模拟输入框文字
+    const inputTexts = ['输入您的问题...', '如何部署私有化版本？', '支持哪些文档格式？', 'AI 助手如何使用？'];
+    let inputIndex = 0;
+    setInterval(() => {
+      inputIndex = (inputIndex + 1) % inputTexts.length;
+      chatInput.placeholder = inputTexts[inputIndex];
+    }, 3000);
+    
+    // 微信二维码弹窗控制
+    function openWechatModal() {
+      const modal = document.getElementById('wechatModal');
+      modal.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    
+    function closeWechatModal() {
+      const modal = document.getElementById('wechatModal');
+      modal.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+    
+    // 申请试用弹窗控制
+    function openTrialModal() {
+      const modal = document.getElementById('trialModal');
+      modal.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    
+    function closeTrialModal() {
+      const modal = document.getElementById('trialModal');
+      modal.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+    
+    // 点击遮罩关闭弹窗
+    document.getElementById('wechatModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeWechatModal();
+      }
+    });
+    
+    document.getElementById('trialModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeTrialModal();
+      }
+    });
+    
+    // ESC 键关闭弹窗
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeWechatModal();
+        closeTrialModal();
+      }
+    });
+  </script>
+</body>
+</html>
