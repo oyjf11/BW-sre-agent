@@ -4,11 +4,11 @@
 
 ## 个人优势
 
-7 年软件研发及企业级系统建设经验，具备前端 / 全栈研发背景，近一年重点投入 AI Coding、Agent 工作流与企业级智能体工程化落地，能够把 AI 能力从 PoC 验证推进到内部试点、流程闭环和持续迭代。
+7 年软件研发及企业级系统建设经验，具备前端 / 全栈研发背景，近一年重点投入 AI Coding、Agent Workflow、SRE Agent 与企业级智能体工程化落地，能够把 AI 能力从 PoC 验证推进到内部试点、流程闭环和持续迭代。
 
-核心判断：Agent 的可靠性不来自模型，来自 Harness——确定性编排包裹非确定性 Agent，结构化契约替代自然语言交接，证据驱动的质量门禁替代 LLM 的自我报告。在三个方向的真实项目中，将这套认知从产品设计层落实到代码实现层。
+核心判断：Agent 的可靠性不来自模型本身，来自 Harness——用确定性编排包裹非确定性推理，用结构化契约替代自然语言交接，用证据驱动的质量门控替代 LLM 的自我报告。在 AI Coding、企业应用生成、SRE 故障处置三个方向中，将这套认知从产品设计层落实到代码实现层。
 
-理解 AI 产品落地的关键是围绕真实业务构建可控的任务编排、工具接入、质量验证与反馈迭代机制。参与过 Harness Engineering 体系从"能力工具化"到"流程编排化"再到"治理与评测"的完整建设路径，具备对 Context / Capability / Constraint 三层分离、能力原子化、状态外置与可恢复、证据链与闭环评测的实践理解。
+理解 AI 产品落地的关键是围绕真实业务构建可控的任务编排、工具接入、质量验证与反馈迭代机制。参与过 Harness Engineering 体系从"能力工具化"到"流程编排化"再到"治理与评测"的完整建设路径，具备对 Context / Capability / Constraint 三层分离、能力原子化、状态外置与可恢复、证据链、质量门控和离线评测的实践理解。
 
 兼具复杂中后台、低代码平台与 AI 工具链建设经验，能够将抽象能力沉淀为可复用的平台模块、流程规范和交付范式，推动 AI 产品在多团队试点中形成可验证结果。
 
@@ -20,7 +20,7 @@
 **AI Agent 工程方向核心参与者 / 前端开发工程师（OD）**
 
 - 围绕企业内部 AI Agent 工程化与研发提效场景，参与 AI 智能体应用平台、AI 辅助研发工具链及低代码平台建设，负责 / 参与 Agent 工作流设计、Harness 体系建设、核心能力抽象、前端与平台能力落地及跨团队推进。
-- 重点推动 AI Coding 工程化、企业轻应用生成、运维工单诊断与低代码平台智能化升级等方向从 PoC 验证走向内部试点和产品化演进。
+- 重点推动 AI Coding 工程化、企业轻应用生成、SRE 运维故障诊断与低代码平台智能化升级等方向从 PoC 验证走向内部试点和产品化演进。
 - 长期承担复杂中后台、低代码平台和内部工具类系统的前端架构、组件抽象和交付体验优化工作。
 
 ### 爱问医联（深圳）有限公司
@@ -74,16 +74,13 @@
 **2025-10 - 至今**
 **核心设计参与者（基于公司内部 SRE 场景的工程化实践项目）**
 
-- 参与公司 AI 运维智能体方向的调研与方案设计，并基于相同业务场景独立实现完整的 Harness 工程化验证项目，覆盖从工单接入到 RCA 复盘的端到端闭环。
-- **设计并实现 13 节点 LangGraph Harness**：intake → triage → retrieve_memory → planner → evidence_fanout → evidence_aggregate → diagnose → critic → remediation → risk_gate → approval_interrupt → executor → verify → rca。拆分原则：单一职责、输入输出明确、失败可独立重试、可单独评测。
-- **核心工程特性实现**：
-  - Checkpoint 持久化：GraphRunner 在每个节点完成后写入 DB（不依赖 LangGraph 内存），支持中断恢复；
-  - Human-in-the-loop：approval_interrupt 节点用 LangGraph `interrupt()` 暂停图执行，审批决策后通过 `Command(resume=)` 恢复；
-  - 并发证据采集：evidence_fanout 用 `asyncio.gather()` 并发调用多工具适配器，单个工具超时不阻塞整体；
-  - 反证机制：critic 节点专门攻击 diagnose 结论，对抗 LLM 确认偏误；
-  - 幂等执行：ControlledExecutor 用 call_id 唯一约束保证高风险操作不重复执行。
-- 围绕 MySQL、K8s、ALB/SLB、OSS 等组件参与规划多源只读数据接入与证据采集方案，实现 Tool Gateway（schema 校验、重试、审计）+ mock/real 双模适配器体系。
-- 建设离线评测框架：构建 fixture 固定证据集、确定性评分器（枚举等值比对而非 LLM-judge）、Precision/Recall/F1 指标体系，验证 Harness 在标准故障场景下的诊断准确率。
+- 参与公司 AI 运维智能体方向的调研与方案设计，并基于相同 SRE 故障处置场景独立实现完整的 Harness 工程化验证项目，覆盖工单接入、故障定性、只读取证、根因诊断、质量门控、人工审批、受控执行、验证和 RCA 归档的端到端闭环。
+- **设计并实现 14 节点 LangGraph Harness**：intake → triage → retrieve_memory → planner → evidence_fanout → evidence_aggregate → diagnose → critic → remediation → risk_gate → approval_interrupt / executor → verify → rca。拆分原则是单一职责、输入输出明确、读写隔离、失败可独立重试、节点可单独评测。
+- **主导取证与质量门控链路设计**：将核心诊断段拆成 `planner → evidence_fanout → evidence_aggregate → diagnose → critic`。planner 基于结构化 `TriageResult` 和故障类型模板确定查什么，不让 LLM 临场决定关键路由；fanout 派出 logs / metrics / k8s / db / deployments 等 specialist agent 并行只读取证；aggregate 将多专家结果合成全局证据包并计算质量分；diagnose 只在证据约束下生成 2-3 个候选根因；critic 根据质量分、矛盾信号、候选置信度和 loop guard 决定 PASS、补证、重规划或转人工。
+- **建设证据质量评估机制**：质量分不看单次工具是否返回，而综合专家覆盖度、专家置信度、降级惩罚和截断惩罚，避免"单点高置信"伪装成全局可靠；aggregate 同时输出 `cross_agent_causal_chains` 和 `contradiction_signals`，例如 logs/metrics 异常但 K8s 正常时，将其作为应用层故障约束，而不是直接阻断诊断。
+- **实现 Tool Gateway 与多源只读适配体系**：围绕 MySQL、K8s、SLB、CMS 指标、OSS 等数据源收口工具调用，统一 schema 校验、超时重试、风险等级、审计落库、敏感字段脱敏和 tracing；支持 mock / real 双模适配器，real 模式下未接入真实适配器时 fail-closed，显式返回失败并影响证据覆盖度，避免 mock 数据污染生产诊断。
+- **补齐可靠性与安全控制点**：GraphRunner 在每个节点完成后保存 checkpoint、持久化 evidence、写事件，支持中断恢复和前端进度追踪；approval_interrupt 通过 LangGraph `interrupt()` 暂停高风险动作，审批后用 `Command(resume=)` 恢复；ControlledExecutor 使用 call_id / action_id 幂等约束，避免恢复或重试导致重复执行；critic 默认最多"首轮取证 + 一次纠偏"，循环耗尽写入结构化终止原因并转人工。
+- **建设离线评测框架**：通过 fixture 在 Tool Gateway 入口短路注入固定证据集，避免 mock 随机数据影响回归；采用确定性评分器（枚举等值比对而非 LLM-as-judge）和 Precision / Recall / F1 指标验证标准故障场景下的诊断稳定性；已完成 Phase 8 离线评测框架和真实 DeepSeek 单 case smoke 报告。
 - 技术栈：Python / FastAPI / LangGraph / SQLite（开发）/ PostgreSQL（生产） / SSE / Docker / K8s（阿里云 ACK）
 
 ## 教育经历
@@ -97,9 +94,9 @@
 
 ## 掌握技能
 
-- **AI Agent 工程**：LangGraph（Python/TS）、Agent Workflow 设计、Harness Engineering、Human-in-the-loop、Checkpoint 持久化、Tool Gateway、幂等执行、证据链、Bad Case 管理、离线评测体系
+- **AI Agent 工程**：LangGraph（Python/TS）、Agent Workflow 设计、Harness Engineering、Human-in-the-loop、Checkpoint 持久化、Tool Gateway、幂等执行、证据链、质量门控、Loop Guard、Bad Case 管理、离线评测体系
 - **AI Coding / Vibe Coding**：OpenCode、Claude Code、Codex、Skills / SubAgent、MCP、Prompt Engineering、Spec Driven Development、Harness Engineering、CLI / Runner
-- **后端开发**：Python、FastAPI、asyncio、SQLAlchemy、PostgreSQL、Redis、Docker、K8s
+- **后端开发**：Python、FastAPI、asyncio、SQLAlchemy、PostgreSQL、Redis、Docker、K8s、SSE、后台任务、审计日志
 - **前端开发**：JavaScript、TypeScript、Vue3、React、Node.js、Playwright、E2E 测试、Sandpack
 - **平台与数据**：Supabase、PostgreSQL / RLS、多租户、SSO 鉴权、Schema 设计、SQL、低代码平台
 - **可观测性**：LangSmith、Langfuse、结构化 Tracing、离线评测
