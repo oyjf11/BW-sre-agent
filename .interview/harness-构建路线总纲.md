@@ -21,10 +21,8 @@
 
 | 文档 | 用途 |
 |---|---|
-| `battle-plan/ai_harness_interview_handbook.md` | 面试叙事、评测细节、案例和高频问答 |
-| `harness-不变内核-第一性原理.md` | 解释为什么这些原则不随系统规模变化 |
-| `harness-完整认知体系.md` | 把个人实践和企业平台统一到一套认知框架 |
-| `harness-engineering-体系认知.md` | 企业级产研平台、组织分工和治理路径 |
+| `battle-plan/harness/00-共享素材/ai_harness_interview_handbook.md` | 面试叙事、评测细节、案例和高频问答 |
+| `harness-完整认知体系.md` | 七个不变内核（为什么不随规模变）+ 企业级平台/组织分工/治理路径 + 个人与企业双层映射（原"不变内核""体系认知"两篇已并入本文） |
 | `docs/superpowers/specs/2026-06-07-vibe-dev-toolkit-design.md` | 个人版可落地工具链的主锚点 |
 
 ## 1. 一句话总脉络
@@ -429,10 +427,10 @@ OpsPilot 可以作为成熟工作流锚点，说明 Harness 不只适用于测�
 
 | 总纲内容 | 来源文档 |
 |---|---|
-| 10-15 分钟主讲、案例、评测细节 | `battle-plan/ai_harness_interview_handbook.md` |
-| 受控任务执行环境、七个不变内核 | `harness-不变内核-第一性原理.md` |
+| 10-15 分钟主讲、案例、评测细节 | `battle-plan/harness/00-共享素材/ai_harness_interview_handbook.md` |
+| 受控任务执行环境、七个不变内核 | `harness-完整认知体系.md` |
 | 个人和企业双层映射 | `harness-完整认知体系.md` |
-| 企业平台、组织分工、五阶段路径 | `harness-engineering-体系认知.md` |
+| 企业平台、组织分工、五阶段路径 | `harness-完整认知体系.md` |
 | 个人版脚本、目录、Playwright、失败案例闭环 | `docs/superpowers/specs/2026-06-07-vibe-dev-toolkit-design.md` |
 
 后续重构顺序建议：
