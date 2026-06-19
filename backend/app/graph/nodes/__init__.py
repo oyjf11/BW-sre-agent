@@ -568,15 +568,45 @@ async def _evidence_fanout_v2(state: IncidentAgentState) -> IncidentAgentState:
             ).model_dump())
 
     if enabled_tasks:
+        logger.info(
+            "evidence_fanout: dispatching %d specialists: %s",
+            len(enabled_tasks), [t.agent_id for t in enabled_tasks],
+        )
+        gathered: List[Any] = []
         try:
-            gathered = await asyncio.wait_for(
-                asyncio.gather(*[
+            tasks_map: Dict[asyncio.Task, int] = {}
+            for idx, t in enumerate(enabled_tasks):
+                task = asyncio.ensure_future(
                     SpecialistAgent(agent_configs[t.agent_id]).run(t, run_id)
-                    for t in enabled_tasks
-                ], return_exceptions=True),
-                timeout=150.0,
+                )
+                tasks_map[task] = idx
+
+            done, pending = await asyncio.wait(
+                tasks_map.keys(), timeout=300.0,
             )
-        except asyncio.TimeoutError:
+
+            for pt in pending:
+                pt.cancel()
+            if pending:
+                logger.warning(
+                    "evidence_fanout: %d specialist(s) timed out: %s",
+                    len(pending), [enabled_tasks[tasks_map[pt]].agent_id for pt in pending],
+                )
+
+            results_map: Dict[int, Any] = {}
+            for d in done:
+                idx = tasks_map[d]
+                try:
+                    results_map[idx] = d.result()
+                except Exception as e:
+                    results_map[idx] = e
+
+            for idx in range(len(enabled_tasks)):
+                if idx in results_map:
+                    gathered.append(results_map[idx])
+                else:
+                    gathered.append(TimeoutError("fanout total timeout"))
+        except Exception:
             gathered = [TimeoutError("fanout total timeout") for _ in enabled_tasks]
 
         evidence_items = state.get("evidence_items", [])

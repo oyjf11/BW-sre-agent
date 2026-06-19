@@ -2,8 +2,10 @@
 import argparse
 import asyncio
 import json
+import logging
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -12,6 +14,12 @@ from app.evals.executors import DirectGraphExecutor, RunnerGraphExecutor
 from app.evals.fixture_context import fixture_scope
 from app.evals.report import build_report, render_markdown, write_report
 from app.evals.runner import build_initial_state, run_dataset
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(name)s] %(levelname)s %(message)s",
+    stream=sys.stderr,
+)
 
 _DEFAULT_DATASET = "app/evals/datasets/"
 
@@ -95,24 +103,44 @@ async def _run_compare(dataset_path: str) -> Dict[str, Any]:
     direct = DirectGraphExecutor()
     runner = RunnerGraphExecutor()
     diffs = []
+    total_start = time.perf_counter()
 
-    for case in cases:
+    for i, case in enumerate(cases):
+        case_id = case["case_id"]
+        print(f"[compare] {i+1}/{len(cases)} {case_id} ...", flush=True)
+
         fixtures = case.get("tool_fixtures", {}) or {}
+        t0 = time.perf_counter()
         with fixture_scope(fixtures):
-            direct_state = await direct.execute(case["case_id"], build_initial_state(case))
+            direct_state = await direct.execute(case_id, build_initial_state(case))
+        direct_ms = int((time.perf_counter() - t0) * 1000)
+        direct_type = _incident_type_of(direct_state)
+        print(f"[compare]   direct: type={direct_type} status={_status_of(direct_state)} ({direct_ms}ms)", flush=True)
+
+        t0 = time.perf_counter()
         with fixture_scope(fixtures):
-            runner_state = await runner.execute(case["case_id"], build_initial_state(case))
-        diffs.append(diff_compare(case["case_id"], direct_state, runner_state))
+            runner_state = await runner.execute(case_id, build_initial_state(case))
+        runner_ms = int((time.perf_counter() - t0) * 1000)
+        runner_type = _incident_type_of(runner_state)
+        print(f"[compare]   runner: type={runner_type} status={_status_of(runner_state)} ({runner_ms}ms)", flush=True)
+
+        diff = diff_compare(case_id, direct_state, runner_state)
+        diffs.append(diff)
+        match_str = "MATCH" if (diff["incident_type_match"] and diff["status_match"]) else "MISMATCH"
+        print(f"[compare]   => {match_str} (direct={direct_type}, runner={runner_type})", flush=True)
+
+    total_ms = int((time.perf_counter() - total_start) * 1000)
+    mismatch_count = sum(
+        1 for diff in diffs
+        if not (diff["incident_type_match"] and diff["status_match"])
+    )
+    print(f"[compare] done: {mismatch_count}/{len(diffs)} mismatches ({total_ms}ms)", flush=True)
 
     return {
         "mode": "compare",
-        "meta": {"real_llm": True, "ci_metric": False},
+        "meta": {"real_llm": True, "ci_metric": False, "total_ms": total_ms},
         "diffs": diffs,
-        "mismatch_count": sum(
-            1
-            for diff in diffs
-            if not (diff["incident_type_match"] and diff["status_match"])
-        ),
+        "mismatch_count": mismatch_count,
     }
 
 

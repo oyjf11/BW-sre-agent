@@ -165,6 +165,11 @@ class SpecialistAgent:
         )
 
         deadline = time.monotonic() + agent_task.timeout_ms / 1000.0
+        logger.info(
+            "[%s] start service=%s env=%s deadline=%.1fs max_rounds=%d tools=%s",
+            self.config.agent_id, agent_task.service, agent_task.env,
+            agent_task.timeout_ms / 1000.0, self.config.max_tool_rounds, self.config.tool_names,
+        )
 
         self.messages = [
             {"role": "system", "content": self.config.system_prompt},
@@ -189,9 +194,13 @@ class SpecialistAgent:
             tracer.set_step_context(span_id)
             round_echo = f"react.round.{round_num}"
             tracer.add_event(span_id, round_echo, {"remaining_ms": remaining_ms})
+            logger.info(
+                "[%s] round %d/%d remaining_ms=%d",
+                self.config.agent_id, round_num, self.config.max_tool_rounds, remaining_ms,
+            )
 
             try:
-                llm_deadline = min(remaining_ms / 1000, 30.0)
+                llm_deadline = min(remaining_ms / 1000, 60.0)
                 resp = await asyncio.wait_for(
                     llm_client.complete_async(
                         self.messages, tools=tools, temperature=0.7, max_tokens=2000,
@@ -215,6 +224,7 @@ class SpecialistAgent:
             content = resp.get("content", "")
 
             if not tool_calls:
+                logger.info("[%s] round %d no tool_calls, finalizing", self.config.agent_id, round_num)
                 self.messages.append({"role": "assistant", "content": content})
                 break
 
@@ -223,6 +233,11 @@ class SpecialistAgent:
             self.messages.append(assistant_msg)
 
             valid_calls = [tc for tc in tool_calls if self._tool_allowed(tc)]
+            logger.info(
+                "[%s] round %d executing %d tools: %s",
+                self.config.agent_id, round_num, len(valid_calls),
+                [tc["function"]["name"] for tc in valid_calls],
+            )
             results = await asyncio.gather(
                 *[self._execute_tool(tc, run_id, remaining_ms) for tc in valid_calls],
                 return_exceptions=True,
@@ -247,6 +262,11 @@ class SpecialistAgent:
         )
         analysis = await self._produce_final_analysis(
             agent_task, run_id, span_id
+        )
+        logger.info(
+            "[%s] finished status=%s confidence=%.2f tools=%s",
+            self.config.agent_id, analysis.run_status.value, analysis.confidence,
+            analysis.collected_tool_names,
         )
         tracer.end_span(span_id, status="ok")
         return analysis
@@ -335,7 +355,7 @@ class SpecialistAgent:
                     temperature=0.3,
                     max_tokens=2000,
                 ),
-                timeout=min((self.config.max_tool_rounds + 2) * 5, 30.0),
+                timeout=min((self.config.max_tool_rounds + 2) * 5, 60.0),
             )
         except Exception:
             logger.error(f"[{self.config.agent_id}] Final LLM call failed")
@@ -620,6 +640,6 @@ def _build_default_agent_tasks(ticket: Any) -> List[AgentTask]:
             service=service,
             env=env,
             incident_type="",
-            timeout_ms=30000,
+            timeout_ms=90000,
         ))
     return tasks

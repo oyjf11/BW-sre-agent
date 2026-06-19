@@ -52,8 +52,14 @@ async def run_dataset(
     rounds_results: List[List[CaseResult]] = []
     rounds_metrics: List[Dict[str, Any]] = []
 
-    for _ in range(max(1, repeat)):
-        case_results = [await run_one_case(case, executor) for case in cases]
+    for r in range(max(1, repeat)):
+        case_results: List[CaseResult] = []
+        for i, case in enumerate(cases):
+            print(f"[eval] round {r+1}/{repeat} case {i+1}/{len(cases)} {case['case_id']} ...", flush=True)
+            result = await run_one_case(case, executor)
+            case_results.append(result)
+            status = "OK" if not result.error else f"ERR: {result.error}"
+            print(f"[eval]   -> {status} (hit_top1={result.hit_top1}, latency={result.latency_ms}ms)", flush=True)
         rounds_results.append(case_results)
         rounds_metrics.append(compute_metrics(case_results))
 

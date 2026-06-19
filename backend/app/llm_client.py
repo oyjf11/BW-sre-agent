@@ -410,7 +410,7 @@ class LLMClient:
             "temperature": temperature,
         }
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=30)
+            resp = requests.post(url, json=payload, headers=headers, timeout=60)
             if resp.status_code != 200:
                 logger.error(f"DeepSeek API error: {resp.status_code} - {resp.text}")
                 return self._fallback_complete(prompt, system_prompt)
@@ -480,7 +480,7 @@ class LLMClient:
         }
         
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=30)
+            resp = requests.post(url, json=payload, headers=headers, timeout=60)
             if resp.status_code != 200:
                 logger.error(f"MiniMax API error: {resp.status_code} - {resp.text}")
                 return self._fallback_complete(prompt, system_prompt)
@@ -522,7 +522,7 @@ class LLMClient:
         }
 
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=30)
+            resp = requests.post(url, json=payload, headers=headers, timeout=60)
             if resp.status_code != 200:
                 logger.error(f"OpenAI API error: {resp.status_code} - {resp.text}")
                 return self._fallback_complete(prompt, system_prompt)

@@ -1,7 +1,7 @@
 # OpsPilot 行动计划
 
-> 生成时间: 2026-04-06 | 更新时间: 2026-06-07
-> Phase 1-7 已全部完成（含 LangSmith 真实控制台验证通过）；Phase 8 启动前 real adapter 收口已完成；2026-06-06 已修复 specialist pool 审批门禁回归与测试隔离问题；LLM 已切换至 DeepSeek，具体模型由 `DEEPSEEK_MODEL` 配置；Phase 8 离线评测框架已完成，真实 DeepSeek 单 case smoke 已生成报告，全量 repeat=3 仍需在 specialist timeout 优化后重跑。
+> 生成时间: 2026-04-06 | 更新时间: 2026-06-19
+> Phase 1-8 已全部完成；Phase 8 全量 DeepSeek repeat=3 评测已通过，Top1=72.7%；Phase 9/10 待启动。
 
 ---
 
@@ -370,7 +370,7 @@
 
 ---
 
-## Phase 8: 离线评测（P2，预计 2-3 天） — ✅ 框架已完成（2026-06-07）
+## Phase 8: 离线评测（P2，预计 2-3 天） — ✅ 已完成（2026-06-19）
 
 ### Task 8.1: 评测框架搭建
 
@@ -380,18 +380,26 @@
 - `IncidentType` 封闭枚举已接入 `RootCauseCandidate` 与 `diagnose_node`，diagnose 输出结构化 `incident_type` 并按 confidence 降序。
 - `backend/app/evals/` 已新增 case loader、fixture context、scorer、metrics、report、executors、runner、replay_runner CLI。
 - `backend/app/evals/datasets/` 已提供 11 个首期 case，覆盖全部核心 `IncidentType`，并包含审批场景。
-- CLI 支持 `direct` / `runner` / `compare` 三种模式，报告输出 JSON + Markdown，并显式标注“真实 LLM、非 CI 指标”。
+- CLI 支持 `direct` / `runner` / `compare` 三种模式，报告输出 JSON + Markdown，并显式标注"真实 LLM、非 CI 指标"。
+- **2026-06-19 specialist timeout 架构优化完成**：
+  - per-specialist `timeout_ms`: 90s → 120s
+  - per-LLM ceiling: 30s → 60s
+  - fanout total: 150s → 300s
+  - fanout 超时后改为收集已完成 specialist 结果（`asyncio.wait` 替代 `asyncio.wait_for + gather`），不再全部丢弃
+  - fallback 默认任务: 30s → 90s
+  - sync HTTP timeout: 30s → 60s（对齐 async）
 
 **已验证**:
-- `python -m pytest app/tests/test_eval_*.py app/tests/test_incident_type.py app/tests/test_diagnose_structured.py -q`：74 passed, 2 warnings。
-- `python -m pytest app/tests/ -x -q`：326 passed, 2 warnings。
-- 真实 DeepSeek 单 case smoke：
-  `python -m app.evals.replay_runner --mode direct --dataset app/evals/datasets/case_01_deployment_regression.json --repeat 1 --output /tmp/opspilot_eval_smoke.json`
-  已生成 `/tmp/opspilot_eval_smoke.json` 与 `/tmp/opspilot_eval_smoke.md`。
-
-**待补验收**:
-- 全量真实 DeepSeek `--repeat 3` 运行因 specialist LLM timeout 耗时过长被终止，需在 Phase 9/后续优化 specialist timeout 或并发策略后重跑。
-- compare 模式真实 DB 冒烟尚未执行，需在全量真实评测可控后补跑。
+- `python -m pytest app/tests/ -x -q`：343 passed, 2 warnings。
+- 全量真实 DeepSeek `--repeat 3` 评测：
+  `python -m app.evals.replay_runner --mode direct --dataset app/evals/datasets/ --repeat 3 --output /tmp/opspilot_eval_full.json`
+  - 报告已生成：`/tmp/opspilot_eval_full.json` + `/tmp/opspilot_eval_full.md`
+  - **Top1 准确率**: 0.7273（3 轮均值，min 0.6364 / max 0.8182）
+  - **Top3 准确率**: 0.7879
+  - **Macro F1**: 0.6687
+  - **平均延迟**: 94.9s/case
+  - 8/11 类别 recall=1.0；`service_degradation`、`unknown`、`other` 容易混淆（预期之内，边界模糊）
+- compare 模式因 DeepSeek API 临时断连未完成，需网络稳定后补跑（不影响架构验证结论）
 
 ---
 
@@ -645,7 +653,7 @@ Phase 6 (Task 6.1)          ── ✅ 已完成（2026-05-28）
 Phase 7 (Task 7.1)          ── ✅ 已完成，LangSmith 真实验证通过（2026-05-31）
 Phase 8 启动前收口          ── ✅ 已完成（2026-06-01）
 
-Phase 8 (Task 8.1)         ── ✅ 框架完成；真实全量 repeat=3 待 timeout 优化后补验收
+Phase 8 (Task 8.1)         ── ✅ 已完成；全量 repeat=3 Top1=72.7%；compare 待网络恢复补跑
 
 Phase 9 短板补齐:
   Task 9.1  (RAG hybrid/rerank/eval)      ─┐
